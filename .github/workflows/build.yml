@@ -26,6 +26,22 @@ jobs:
           modules: "qtshadertools"
           cache: true
 
+      # Qt 6.8's macOS build still links against the AGL framework, which
+      # Apple removed from newer Xcode SDKs (ld: framework 'AGL' not found).
+      # GitHub's macOS runners ship several Xcode versions side by side, so
+      # pin to the newest one old enough to still have AGL.framework.
+      - name: Select Xcode with AGL framework support
+        if: matrix.name == 'macos'
+        run: |
+          for v in /Applications/Xcode_15*.app /Applications/Xcode_14*.app; do
+            if [ -d "$v" ]; then
+              echo "Using $v"
+              sudo xcode-select -s "$v"
+              break
+            fi
+          done
+          xcodebuild -version
+
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
