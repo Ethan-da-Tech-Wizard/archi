@@ -1,0 +1,60 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: windows-latest
+            name: windows
+          - os: macos-latest
+            name: macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.8.*"
+          modules: "qtshadertools"
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Package (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          mkdir -p dist
+          cp build/archi dist/
+
+      - name: Package (Windows)
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $exe = Get-ChildItem -Recurse -Filter archi.exe -Path build | Select-Object -First 1
+          Copy-Item $exe.FullName dist/
+          windeployqt dist/archi.exe
+
+      - name: Package (macOS)
+        if: matrix.name == 'macos'
+        run: |
+          macdeployqt build/archi.app
+          mkdir -p dist
+          cp -R build/archi.app dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archi-${{ matrix.name }}
+          path: dist/
