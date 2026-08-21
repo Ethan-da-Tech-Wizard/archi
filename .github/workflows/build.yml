@@ -26,24 +26,29 @@ jobs:
           modules: "qtshadertools"
           cache: true
 
-      # Qt 6.8's macOS build still links against the AGL framework, which
-      # Apple removed from newer Xcode SDKs (ld: framework 'AGL' not found).
-      # GitHub's macOS runners ship several Xcode versions side by side, so
-      # pin to the newest one old enough to still have AGL.framework.
-      - name: Select Xcode with AGL framework support
+      # Qt 6.8's macOS build still links against the AGL framework even
+      # though nothing in modern Qt actually calls into it (dead link
+      # metadata) — Apple has since dropped AGL.framework from the SDK
+      # entirely, so `ld: framework 'AGL' not found` fails the link step.
+      # Rather than hunt for an old Xcode that still ships it, satisfy the
+      # linker with a tiny stub framework of our own.
+      - name: Work around missing AGL framework
         if: matrix.name == 'macos'
         run: |
-          for v in /Applications/Xcode_15*.app /Applications/Xcode_14*.app; do
-            if [ -d "$v" ]; then
-              echo "Using $v"
-              sudo xcode-select -s "$v"
-              break
-            fi
-          done
-          xcodebuild -version
+          mkdir -p "$RUNNER_TEMP/ExtraFrameworks/AGL.framework"
+          echo 'static const int agl_stub = 0;' > "$RUNNER_TEMP/agl_stub.c"
+          clang -dynamiclib -o "$RUNNER_TEMP/ExtraFrameworks/AGL.framework/AGL" "$RUNNER_TEMP/agl_stub.c" \
+            -install_name "AGL" -current_version 1.0 -compatibility_version 1.0
+          echo "AGL_FRAMEWORK_DIR=$RUNNER_TEMP/ExtraFrameworks" >> "$GITHUB_ENV"
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+        run: |
+          if [ "${{ matrix.name }}" = "macos" ]; then
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-F${AGL_FRAMEWORK_DIR}"
+          else
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          fi
 
       - name: Build
         run: cmake --build build --config Release -j
