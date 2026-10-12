@@ -1,57 +1,42 @@
-<h1 align="center">Archi</h1>
-<p align="center"><b>An infinite-canvas diagramming tool for sketching systems, written in Qt 6 and QML.</b></p>
-<p align="center">
-<img alt="Qt" src="https://img.shields.io/badge/Qt-6.5%2B-41cd52">
-<img alt="C++" src="https://img.shields.io/badge/C%2B%2B-20-blue">
-<img alt="CMake" src="https://img.shields.io/badge/build-CMake-informational">
-<img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-</p>
+# Archi
 
-<p align="center"><img src="docs/archi-canvas.png" alt="Archi: shapes connected by arrows on an infinite dotted canvas" width="800"></p>
+A native diagramming workspace with an infinite canvas, editable shapes, connections, and project files.
 
-Archi is a lightweight, native desktop app for drawing architecture and flow diagrams. You get an endless pan-and-zoom canvas, draggable shapes and connecting arrows, all rendered by Qt Quick so it stays fast and looks the same on every platform.
+**Status:** Desktop application prototype  
+**Built with:** C++20, Qt 6, QML, Python
 
-## Features
+[Project guide](docs/PROJECT_GUIDE.md) · [Every file explained](docs/FILE_GUIDE.md) · [Licenses and dependencies](docs/LICENSE_REVIEW.md)
 
-- **Infinite canvas:** pan and zoom without edges.
-- **Shapes and arrows:** pick a rectangle, ellipse or diamond, double-click the canvas to drop one, and drag the blue dot on a shape to connect it to another.
-- **Cross-platform:** plain Qt 6 and CMake with no OS-specific code, so the same source builds on Linux, Windows and macOS.
-- **Tiny codebase:** a single C++ entry point plus a handful of QML components.
+## Start here
 
-## Controls
+- [src/main.cpp](src/main.cpp) — Source module for main; defines `main`.
+- [qml/Main.qml](qml/Main.qml) — Source module for Main; defines `toggleSavedBackground`, `openBackgroundChooser`, `cycleBackground`; contributes to the application’s interface.
+- [CMakeLists.txt](CMakeLists.txt) — CMake build definition for .; declares targets, dependency discovery, and compiler/build settings.
 
-| Action | How |
-|---|---|
-| Add a shape | Double-click empty canvas |
-| Edit a shape | Double-click it |
-| Move a shape | Drag it |
-| Draw an arrow | Drag the blue dot on a shape |
-| Pan | Drag empty canvas |
-
-## Build and run
-
-You need Qt 6.5+, CMake and a C++20 compiler. On Arch Linux:
+The following commands are taken from this project’s source/configuration. Install its prerequisites first.
 
 ```sh
-sudo pacman -S qt6-base qt6-declarative qt6-shadertools cmake gcc
 cmake -S . -B build
 cmake --build build
-./build/archi
 ```
 
-Platform-specific steps for Windows, macOS and ChromeOS are in [BUILD.md](BUILD.md).
+[Detailed setup, usage, and development notes](PROJECT_NOTES.md) preserve the previous project documentation.
 
-## Project layout
+## Repository layout
 
-| Path | Purpose |
-|---|---|
-| `src/main.cpp` | Application entry point |
-| `qml/Main.qml` | Main window and toolbar |
-| `qml/InfiniteCanvas.qml` | Pan and zoom canvas |
-| `qml/ShapeItem.qml`, `qml/ShapeIcon.qml` | Diagram shapes |
-| `qml/ArrowLayer.qml` | Connecting arrows |
-| `.github/workflows/` | CI builds |
+| Path | Role |
+| --- | --- |
+| [.github/](.github/) | GitHub workflow and contributor configuration (1 tracked entries). |
+| [docs/](docs/) | Project documentation, decisions, and reference material (6 tracked entries). |
+| [exports/](exports/) | Project-specific exports components (2 tracked entries). |
+| [qml/](qml/) | Qt Quick views and reusable UI components (11 tracked entries). |
+| [src/](src/) | Application source and platform integration (5 tracked entries). |
+| [tests/](tests/) | Automated checks and test fixtures (1 tracked entries). |
+
+## Scope and current limits
+
+Install the Qt modules listed in CMakeLists.txt before building. Optional symbolic math uses the separate Python environment described in the existing setup notes.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Original project code retains **MIT** terms in [LICENSE](LICENSE). Third-party libraries, media, data, models, and tools retain their own terms. See the [license review](docs/LICENSE_REVIEW.md) and [dependency inventory](docs/DEPENDENCIES.csv).
