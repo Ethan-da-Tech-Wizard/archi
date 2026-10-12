@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtCore
 
 ApplicationWindow {
     id: window
@@ -10,9 +11,54 @@ ApplicationWindow {
     visible: true
     title: "Archi"
 
+    property alias diagramCanvas: canvas
+    property real canvasRightInset: 0
+
     property var bgPresets: ["#ffffff", "#1e1e1e", "#f5f0e6"]
     property int bgIndex: 0
-    property color bgColor: bgPresets[0]
+    property color bgColor: appearance.lastBackground
+    property var savedBackgrounds: {
+        try { return JSON.parse(appearance.savedColors) } catch (error) { return [] }
+    }
+    readonly property bool backgroundSaved: savedBackgrounds.indexOf(String(bgColor)) >= 0
+    onBgColorChanged: appearance.lastBackground = String(bgColor)
+
+    Settings {
+        id: appearance
+        location: "file://" + StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/Archi/appearance.ini"
+        category: "Canvas"
+        property string lastBackground: "#caffee"
+        property string savedColors: '["#caffee"]'
+    }
+
+    function toggleSavedBackground() {
+        const color = String(bgColor)
+        appearance.savedColors = JSON.stringify(backgroundSaved ? savedBackgrounds.filter(c => c !== color) : savedBackgrounds.concat([color]))
+        appearance.sync()
+    }
+    function openBackgroundChooser() { colorDialog.open() }
+
+    Popup {
+        id: colorPalette
+        x: Math.max(8, window.width - width - 12)
+        y: 4
+        padding: 10
+        GridLayout {
+            columns: 4
+            Repeater {
+                model: window.bgPresets.concat(window.savedBackgrounds.filter(c => window.bgPresets.indexOf(c) < 0))
+                delegate: ToolButton {
+                    required property string modelData
+                    implicitWidth: 34
+                    implicitHeight: 34
+                    background: Rectangle { color: modelData; radius: 3; border.color: "#687580"; border.width: window.bgColor == modelData ? 3 : 1 }
+                    ToolTip.visible: hovered
+                    ToolTip.text: modelData.toUpperCase()
+                    onClicked: { window.bgColor = modelData; colorPalette.close() }
+                }
+            }
+        }
+    }
 
     function cycleBackground() {
         bgIndex = (bgIndex + 1) % bgPresets.length
@@ -27,9 +73,12 @@ ApplicationWindow {
     property int shapeSizeIndex: 1
 
     property var shapeKindPresets: [
-        { icon: "▭", kind: "rect", name: "Rectangle" },
-        { icon: "◯", kind: "ellipse", name: "Ellipse" },
-        { icon: "◇", kind: "diamond", name: "Diamond" }
+        { kind: "terminal", name: "Terminal (Elongated oval)" },
+        { kind: "process", name: "Process (Rectangle)" },
+        { kind: "input_output", name: "Input/Output (Parallelogram)" },
+        { kind: "decision", name: "Decision (Diamond)" },
+        { kind: "internal_method", name: "Internal Method (Top bar & left line)" },
+        { kind: "external_method", name: "External Method (Left & right lines)" }
     ]
     property int shapeKindIndex: 0
 
@@ -38,8 +87,12 @@ ApplicationWindow {
         onActivated: window.cycleBackground()
     }
     Shortcut {
-        sequence: StandardKey.HelpContents
+        sequences: [StandardKey.HelpContents]
         onActivated: shortcutsPopup.open()
+    }
+    Shortcut {
+        sequence: "F2"
+        onActivated: cheatSheetPopup.open()
     }
 
     ColorDialog {
@@ -47,6 +100,19 @@ ApplicationWindow {
         title: "Choose background color"
         selectedColor: window.bgColor
         onAccepted: window.bgColor = selectedColor
+    }
+
+    CheatSheetPopup {
+        id: cheatSheetPopup
+        onSelectShapeKind: (kind) => {
+            for (var i = 0; i < window.shapeKindPresets.length; i++) {
+                if (window.shapeKindPresets[i].kind === kind) {
+                    window.shapeKindIndex = i
+                    break
+                }
+            }
+        }
+        onLoadSampleFlowchart: canvas.loadSampleDiagram()
     }
 
     Popup {
@@ -65,7 +131,7 @@ ApplicationWindow {
                 columnSpacing: 16
                 rowSpacing: 4
                 Label { text: "Double-click empty canvas"; opacity: 0.7 }
-                Label { text: "New shape (using the toolbar's size/shape pick)" }
+                Label { text: "New shape (using selected toolbar shape/size)" }
                 Label { text: "Double-click a shape"; opacity: 0.7 }
                 Label { text: "Edit its text" }
                 Label { text: "Esc"; opacity: 0.7 }
@@ -73,15 +139,17 @@ ApplicationWindow {
                 Label { text: "Drag a shape"; opacity: 0.7 }
                 Label { text: "Move it" }
                 Label { text: "Drag the blue dot on a shape"; opacity: 0.7 }
-                Label { text: "Draw an arrow to another shape" }
+                Label { text: "Draw a flowline arrow to another shape" }
                 Label { text: "Drag empty canvas"; opacity: 0.7 }
                 Label { text: "Pan" }
                 Label { text: "Scroll wheel"; opacity: 0.7 }
                 Label { text: "Zoom in/out (centered on cursor)" }
                 Label { text: "Ctrl+B"; opacity: 0.7 }
                 Label { text: "Cycle background presets" }
+                Label { text: "F2"; opacity: 0.7 }
+                Label { text: "Open Flowchart Cheat Sheet" }
                 Label { text: "F1 / ?"; opacity: 0.7 }
-                Label { text: "Show this popup" }
+                Label { text: "Show shortcuts popup" }
             }
             Button {
                 text: "Close"
@@ -91,120 +159,69 @@ ApplicationWindow {
         }
     }
 
+    Shortcut { sequences: [StandardKey.Undo]; enabled: canvas.editingIndex === -1; onActivated: canvas.undo() }
+    Shortcut { sequences: [StandardKey.Redo]; enabled: canvas.editingIndex === -1; onActivated: canvas.redo() }
+    Shortcut { sequence: "Ctrl+D"; enabled: canvas.editingIndex === -1; onActivated: canvas.duplicateSelection() }
+
+    component IconTool: ToolButton {
+        property string glyph
+        property string tip
+        implicitWidth: 36
+        implicitHeight: 36
+        icon.name: glyph
+        icon.source: "file:///usr/share/icons/breeze/actions/22/" + glyph + ".svg"
+        display: AbstractButton.IconOnly
+        ToolTip.visible: hovered
+        ToolTip.text: tip
+        Accessible.name: tip
+    }
+
     header: ToolBar {
-        implicitHeight: 48
-
-        RowLayout {
+        implicitHeight: 44
+        Flickable {
             anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            spacing: 16
-
-            Label {
-                text: "Archi"
-                font.bold: true
-                font.pixelSize: 15
-            }
-
-            ToolSeparator { Layout.fillHeight: true; Layout.topMargin: 6; Layout.bottomMargin: 6 }
-
+            contentWidth: toolbarRow.width
+            clip: true
+            flickableDirection: Flickable.HorizontalFlick
             RowLayout {
-                spacing: 8
-                Label { text: "Size"; opacity: 0.65 }
-                Row {
-                    spacing: 1
-                    Repeater {
-                        model: window.shapeSizePresets
-                        delegate: ToolButton {
-                            required property var modelData
-                            required property int index
-                            text: modelData.label
-                            implicitWidth: 32
-                            implicitHeight: 30
-                            checkable: true
-                            checked: window.shapeSizeIndex === index
-                            onClicked: window.shapeSizeIndex = index
-                        }
-                    }
+                id: toolbarRow
+                height: parent.height
+                spacing: 3
+                Label { text: "Archi"; font.bold: true; font.pixelSize: 16; leftPadding: 10; rightPadding: 8 }
+                IconTool { glyph: "edit-undo"; tip: "Undo"; enabled: canvas.canUndo; onClicked: canvas.undo() }
+                IconTool { glyph: "edit-redo"; tip: "Redo"; enabled: canvas.canRedo; onClicked: canvas.redo() }
+                IconTool {
+                    objectName: "deleteShape"
+                    glyph: "edit-delete"; tip: "Delete selection"
+                    enabled: canvas.selectedId !== -1 || canvas.selectedArrow !== -1
+                    onClicked: { canvas.editingIndex = -1; canvas.deleteSelection() }
                 }
-            }
-
-            ToolSeparator { Layout.fillHeight: true; Layout.topMargin: 6; Layout.bottomMargin: 6 }
-
-            RowLayout {
-                spacing: 8
-                Label { text: "Shape"; opacity: 0.65 }
-                Row {
-                    spacing: 1
-                    Repeater {
-                        model: window.shapeKindPresets
-                        delegate: ToolButton {
-                            id: shapeKindButton
-                            required property var modelData
-                            required property int index
-                            implicitWidth: 36
-                            implicitHeight: 30
-                            checkable: true
-                            checked: window.shapeKindIndex === index
-                            onClicked: window.shapeKindIndex = index
-                            ToolTip.visible: hovered
-                            ToolTip.text: modelData.name
-                            contentItem: ShapeIcon {
-                                kind: shapeKindButton.modelData.kind
-                                implicitWidth: 18
-                                implicitHeight: 14
-                                anchors.centerIn: parent
-                                strokeColor: shapeKindButton.checked ? "#2f6fb0" : "#555555"
-                                fillColor: shapeKindButton.checked ? "#cfe3f7" : "transparent"
-                            }
-                        }
-                    }
+                ToolSeparator {}
+                ComboBox {
+                    implicitWidth: 150
+                    model: window.shapeKindPresets
+                    textRole: "name"
+                    currentIndex: window.shapeKindIndex
+                    onActivated: window.shapeKindIndex = currentIndex
                 }
-            }
-
-            ToolSeparator { Layout.fillHeight: true; Layout.topMargin: 6; Layout.bottomMargin: 6 }
-
-            RowLayout {
-                spacing: 8
-                Label { text: "Background"; opacity: 0.65 }
-                Button {
-                    id: bgSwatch
-                    implicitWidth: 30
-                    implicitHeight: 30
-                    background: Rectangle {
-                        color: window.bgColor
-                        border.color: "#8a8a8a"
-                        border.width: 1
-                        radius: 4
-                    }
-                    onClicked: colorDialog.open()
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Pick any background color"
+                ComboBox {
+                    implicitWidth: 62
+                    model: window.shapeSizePresets
+                    textRole: "label"
+                    currentIndex: window.shapeSizeIndex
+                    onActivated: window.shapeSizeIndex = currentIndex
                 }
+                IconTool { glyph: "zoom-fit-best"; tip: "Fit diagram"; onClicked: canvas.fitView() }
+                Label { text: Math.round(canvas.zoom * 100) + "%"; Layout.preferredWidth: 48; horizontalAlignment: Text.AlignHCenter }
+                IconTool { glyph: "help-contents"; tip: "Flowchart symbols"; onClicked: cheatSheetPopup.open() }
                 ToolButton {
-                    text: "↻"
-                    implicitWidth: 30
-                    implicitHeight: 30
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Cycle preset backgrounds (Ctrl+B)"
-                    onClicked: window.cycleBackground()
+                    implicitWidth: 36; implicitHeight: 36
+                    contentItem: Rectangle { implicitWidth: 22; implicitHeight: 22; color: window.bgColor; border.color: "#888888"; radius: 3 }
+                    onClicked: colorDialog.open()
+                    ToolTip.visible: hovered; ToolTip.text: "Background color"
                 }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Label {
-                text: "Zoom " + Math.round(canvas.zoom * 100) + "%"
-                opacity: 0.75
-            }
-
-            ToolButton {
-                text: "?"
-                implicitWidth: 30
-                implicitHeight: 30
-                ToolTip.visible: hovered
-                ToolTip.text: "Shortcuts & controls"
-                onClicked: shortcutsPopup.open()
+                IconTool { glyph: window.backgroundSaved ? "bookmarks-bookmarked" : "bookmark-new"; tip: window.backgroundSaved ? "Remove saved color" : "Save current color"; onClicked: window.toggleSavedBackground() }
+                IconTool { glyph: "bookmarks"; tip: "Saved background colors"; onClicked: colorPalette.open() }
             }
         }
     }
@@ -212,6 +229,7 @@ ApplicationWindow {
     InfiniteCanvas {
         id: canvas
         anchors.fill: parent
+        anchors.rightMargin: window.canvasRightInset
         backgroundColor: window.bgColor
         defaultShapeWidth: window.shapeSizePresets[window.shapeSizeIndex].w
         defaultShapeHeight: window.shapeSizePresets[window.shapeSizeIndex].h

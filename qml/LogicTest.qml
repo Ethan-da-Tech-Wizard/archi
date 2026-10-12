@@ -122,14 +122,47 @@ Item {
         assertTrue("tiny shape arrow strokeWidth scales down", tinyLine.strokeWidth < 1)
         assertTrue("tiny shape arrow strokeWidth stays positive", tinyLine.strokeWidth > 0)
 
-        // Shape-type picker: createShape() should stamp whatever kind is
-        // currently selected, and default to "rect" when untouched.
-        assertTrue("default shape kind is rect", canvas.shapesModel.get(0).shapeKind === "rect")
-        canvas.defaultShapeKind = "diamond"
-        canvas.createShape(-5000, -5000)
-        var diamondShape = canvas.shapesModel.get(canvas.shapesModel.count - 1)
-        assertTrue("new shape picks up selected kind", diamondShape.shapeKind === "diamond")
-        canvas.defaultShapeKind = "rect"
+        // Shape-type picker: test all standard flowchart kinds
+        var kindsToTest = ["terminal", "input_output", "process", "decision", "internal_method", "external_method"]
+        for (var k = 0; k < kindsToTest.length; k++) {
+            var kindName = kindsToTest[k]
+            canvas.defaultShapeKind = kindName
+            canvas.createShape(-1000 * (k + 1), -1000 * (k + 1))
+            var createdShape = canvas.shapesModel.get(canvas.shapesModel.count - 1)
+            assertTrue("new shape picks up selected kind (" + kindName + ")", createdShape.shapeKind === kindName)
+        }
+
+        // Test sample flowchart loader
+        canvas.loadSampleDiagram()
+        assertEq("sample flowchart shape count", canvas.shapesModel.count, 7)
+        assertEq("sample flowchart arrow count", canvas.arrows.length, 7)
+        assertTrue("sample flowchart start terminal shape kind", canvas.shapesModel.get(0).shapeKind === "terminal")
+        assertTrue("sample flowchart input_output shape kind", canvas.shapesModel.get(1).shapeKind === "input_output")
+        assertTrue("sample flowchart process shape kind", canvas.shapesModel.get(2).shapeKind === "process")
+        assertTrue("sample flowchart decision shape kind", canvas.shapesModel.get(3).shapeKind === "decision")
+        assertTrue("sample flowchart internal method shape kind", canvas.shapesModel.get(4).shapeKind === "internal_method")
+        assertTrue("sample flowchart external method shape kind", canvas.shapesModel.get(5).shapeKind === "external_method")
+
+        canvas.resetHistory()
+        var deletedId = canvas.shapesModel.get(3).shapeId
+        canvas.selectShape(deletedId)
+        assertTrue("selection deletion succeeds", canvas.deleteSelection())
+        assertEq("deletion removes one shape", canvas.shapesModel.count, 6)
+        assertTrue("deletion removes incident arrows", canvas.arrows.every(a => a.fromId !== deletedId && a.toId !== deletedId))
+        canvas.undo()
+        assertEq("undo restores shape", canvas.shapesModel.count, 7)
+        assertEq("undo restores arrows", canvas.arrows.length, 7)
+        canvas.redo()
+        assertEq("redo removes shape", canvas.shapesModel.count, 6)
+        canvas.undo()
+        canvas.editingIndex = 0
+        assertTrue("Delete does not remove a text-edited node", !canvas.deleteSelection())
+        canvas.editingIndex = -1
+        canvas.selectShape(canvas.shapesModel.get(0).shapeId)
+        canvas.duplicateSelection()
+        assertEq("duplicate creates one shape", canvas.shapesModel.count, 8)
+        canvas.undo()
+        assertEq("duplicate is undoable", canvas.shapesModel.count, 7)
 
         console.log("ALL TESTS PASSED")
         Qt.exit(0)

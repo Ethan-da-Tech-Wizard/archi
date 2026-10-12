@@ -48,6 +48,13 @@ cmake --build build --config Release
 
 ## Notes
 
+- To save a diagram as an image, open the project, choose the view, and click
+  **Export PNG** (or press **Ctrl+Shift+E**). The image includes the entire view,
+  its background color, shapes, connections and labels, without the editing
+  grid or selection handles. Large diagrams are scaled to fit within
+  4096 × 4096 pixels. The editable project remains a separate JSON file.
+  You can also convert a project's active view from the command line:
+  `./build/archi --export-png project.archi.json diagram.png`.
 - The app opens a single window — no separate server, no localhost, no
   network access at all.
 - `ARCHI_ENTRY=LogicTest ./build/archi` runs the built-in headless

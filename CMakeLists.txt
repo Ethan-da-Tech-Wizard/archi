@@ -11,6 +11,9 @@ qt_standard_project_setup(REQUIRES 6.5)
 
 qt_add_executable(archi
     src/main.cpp
+    src/DocumentFiles.h
+    src/MathEngine.h
+    src/DocumentSync.h
 )
 
 qt_add_qml_module(archi
@@ -18,10 +21,15 @@ qt_add_qml_module(archi
     VERSION 1.0
     QML_FILES
         qml/Main.qml
+        qml/ProjectWorkspace.qml
+        qml/PngExporter.qml
+        qml/SyncPanel.qml
+        qml/WorkflowChecks.js
         qml/InfiniteCanvas.qml
         qml/ShapeItem.qml
         qml/ArrowLayer.qml
         qml/ShapeIcon.qml
+        qml/CheatSheetPopup.qml
         qml/LogicTest.qml
     RESOURCE_PREFIX /qt/qml
 )
@@ -38,3 +46,15 @@ set_target_properties(archi PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
 )
+
+target_compile_definitions(archi PRIVATE
+    ARCHI_MATH_PYTHON="${CMAKE_CURRENT_SOURCE_DIR}/.venv-math/bin/python"
+    ARCHI_MATH_SCRIPT="${CMAKE_CURRENT_SOURCE_DIR}/src/math_engine.py"
+)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(archi-png-test tests/png_export.cpp)
+    target_link_libraries(archi-png-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME png-export COMMAND archi-png-test $<TARGET_FILE:archi>)
+endif()

@@ -1,8 +1,11 @@
 import QtQuick
 import QtQuick.Shapes
+import QtQuick.Controls
 
 Item {
     id: shapeRoot
+    objectName: "shape-" + shapeId
+    readonly property alias nodeMenu: contextMenu
 
     required property int index
     required property int shapeId
@@ -12,20 +15,17 @@ Item {
     required property double ph
     required property string text
     required property color shapeColor
-    required property string shapeKind // "rect" | "ellipse" | "diamond"
+    required property string shapeKind // "terminal"|"process"|"input_output"|"decision"|"internal_method"|"external_method"
     required property var canvasRoot
     required property var worldItem
 
-    // Every visual detail below (text, border, handles) is sized relative to
-    // the shape's own world-space dimensions rather than a fixed constant.
-    // Shapes can end up anywhere from a few world-units to thousands wide
-    // (creation size is divided by zoom to stay screen-constant, see
-    // InfiniteCanvas.createShape), so a fixed-size handle or font would look
-    // right only at the zoom level it was tuned for and grotesquely
-    // oversized or invisible at any other.
     readonly property double minDim: Math.min(pw, ph)
     readonly property double borderW: Math.max(0.5, Math.min(minDim * 0.02, 2)) * (canvasRoot.editingIndex === index ? 1.5 : 1)
-    readonly property color borderColor: canvasRoot.editingIndex === index ? "#4a90d9" : "#555555"
+    readonly property color borderColor: canvasRoot.editingIndex === index || canvasRoot.selectedId === shapeId ? "#2876bd" : "#555555"
+    readonly property real textInsetX: pw * ((shapeKind === "decision" || shapeKind === "diamond") ? 0.25 :
+        (shapeKind === "external_method" || shapeKind === "internal_method") ? 0.23 : 0.1)
+    readonly property real textInsetTop: (shapeKind === "decision" || shapeKind === "diamond") ? ph * 0.23 :
+        shapeKind === "internal_method" ? ph * 0.3 : 8
 
     x: px
     y: py
@@ -36,43 +36,39 @@ Item {
     // is identical regardless of which one is picked.
     Loader {
         anchors.fill: parent
-        sourceComponent: shapeRoot.shapeKind === "ellipse" ? ellipseVisual
-            : shapeRoot.shapeKind === "diamond" ? diamondVisual
+        sourceComponent: (shapeRoot.shapeKind === "terminal" || shapeRoot.shapeKind === "ellipse") ? terminalVisual
+            : (shapeRoot.shapeKind === "decision" || shapeRoot.shapeKind === "diamond") ? diamondVisual
+            : (shapeRoot.shapeKind === "input_output" || shapeRoot.shapeKind === "io") ? ioVisual
+            : shapeRoot.shapeKind === "internal_method" ? internalMethodVisual
+            : shapeRoot.shapeKind === "external_method" ? externalMethodVisual
             : rectVisual
     }
 
+    // Process / Rectangle
     Component {
         id: rectVisual
         Rectangle {
             anchors.fill: parent
             color: shapeRoot.shapeColor
-            radius: Math.min(6, shapeRoot.minDim * 0.08)
+            radius: Math.min(4, shapeRoot.minDim * 0.06)
             border.width: shapeRoot.borderW
             border.color: shapeRoot.borderColor
         }
     }
 
+    // Terminal (Elongated Oval / Stadium shape)
     Component {
-        id: ellipseVisual
-        Shape {
-            id: ellipseShape
+        id: terminalVisual
+        Rectangle {
             anchors.fill: parent
-            ShapePath {
-                fillColor: shapeRoot.shapeColor
-                strokeColor: shapeRoot.borderColor
-                strokeWidth: shapeRoot.borderW
-                PathAngleArc {
-                    centerX: ellipseShape.width / 2
-                    centerY: ellipseShape.height / 2
-                    radiusX: ellipseShape.width / 2
-                    radiusY: ellipseShape.height / 2
-                    startAngle: 0
-                    sweepAngle: 360
-                }
-            }
+            color: shapeRoot.shapeColor
+            radius: Math.min(shapeRoot.pw, shapeRoot.ph) / 2
+            border.width: shapeRoot.borderW
+            border.color: shapeRoot.borderColor
         }
     }
 
+    // Decision (Diamond)
     Component {
         id: diamondVisual
         Shape {
@@ -92,19 +88,130 @@ Item {
         }
     }
 
+    // Input / Output (Parallelogram)
+    Component {
+        id: ioVisual
+        Shape {
+            id: ioShape
+            anchors.fill: parent
+            ShapePath {
+                fillColor: shapeRoot.shapeColor
+                strokeColor: shapeRoot.borderColor
+                strokeWidth: shapeRoot.borderW
+                startX: ioShape.width * 0.2
+                startY: 0
+                PathLine { x: ioShape.width; y: 0 }
+                PathLine { x: ioShape.width * 0.8; y: ioShape.height }
+                PathLine { x: 0; y: ioShape.height }
+                PathLine { x: ioShape.width * 0.2; y: 0 }
+            }
+        }
+    }
+
+    // Internal Method (Rectangle with horizontal line at top & vertical line on left)
+    Component {
+        id: internalMethodVisual
+        Item {
+            anchors.fill: parent
+            Rectangle {
+                anchors.fill: parent
+                color: shapeRoot.shapeColor
+                radius: Math.min(2, shapeRoot.minDim * 0.04)
+                border.width: shapeRoot.borderW
+                border.color: shapeRoot.borderColor
+            }
+            Rectangle {
+                x: 0
+                y: parent.height * 0.25
+                width: parent.width
+                height: shapeRoot.borderW
+                color: shapeRoot.borderColor
+            }
+            Rectangle {
+                x: parent.width * 0.2
+                y: 0
+                width: shapeRoot.borderW
+                height: parent.height
+                color: shapeRoot.borderColor
+            }
+        }
+    }
+
+    // External Method (Rectangle with vertical lines on both left and right side)
+    Component {
+        id: externalMethodVisual
+        Item {
+            anchors.fill: parent
+            Rectangle {
+                anchors.fill: parent
+                color: shapeRoot.shapeColor
+                radius: Math.min(2, shapeRoot.minDim * 0.04)
+                border.width: shapeRoot.borderW
+                border.color: shapeRoot.borderColor
+            }
+            Rectangle {
+                x: parent.width * 0.18
+                y: 0
+                width: shapeRoot.borderW
+                height: parent.height
+                color: shapeRoot.borderColor
+            }
+            Rectangle {
+                x: parent.width * 0.82 - shapeRoot.borderW
+                y: 0
+                width: shapeRoot.borderW
+                height: parent.height
+                color: shapeRoot.borderColor
+            }
+        }
+    }
+
+    Text {
+        objectName: "shapeLabel-" + shapeRoot.shapeId
+        anchors.fill: parent
+        anchors.leftMargin: shapeRoot.textInsetX
+        anchors.rightMargin: anchors.leftMargin
+        anchors.topMargin: shapeRoot.textInsetTop
+        anchors.bottomMargin: shapeRoot.shapeKind === "internal_method" ? 8 : anchors.topMargin
+        visible: canvasRoot.editingIndex !== shapeRoot.index
+        text: shapeRoot.text
+        textFormat: Text.PlainText
+        color: "#20262d"
+        wrapMode: Text.Wrap
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        font.pixelSize: Math.max(10, Math.min(shapeRoot.minDim * 0.24, 23))
+        minimumPixelSize: 10
+        fontSizeMode: Text.Fit
+        elide: Text.ElideRight
+        clip: true
+    }
+
     TextEdit {
         id: textEdit
+        objectName: "shapeEditor-" + shapeRoot.shapeId
         anchors.fill: parent
-        anchors.margins: Math.max(2, shapeRoot.minDim * 0.08)
+        anchors.margins: Math.max(4, shapeRoot.minDim * 0.1)
+        anchors.leftMargin: shapeRoot.textInsetX
+        anchors.rightMargin: shapeRoot.textInsetX
+        anchors.topMargin: shapeRoot.textInsetTop
         text: shapeRoot.text
+        textFormat: TextEdit.PlainText
+        color: "#20262d"
+        visible: canvasRoot.editingIndex === shapeRoot.index
+        clip: true
         wrapMode: TextEdit.Wrap
         horizontalAlignment: TextEdit.AlignHCenter
         verticalAlignment: TextEdit.AlignVCenter
         font.pixelSize: Math.max(4, Math.min(shapeRoot.minDim * 0.22, 32))
         selectByMouse: true
         focus: canvasRoot.editingIndex === shapeRoot.index
-        onTextChanged: canvasRoot.shapesModel.setProperty(shapeRoot.index, "text", text)
-        Keys.onEscapePressed: canvasRoot.editingIndex = -1
+        onTextChanged: {
+            if (activeFocus && canvasRoot.editingIndex === shapeRoot.index)
+                canvasRoot.shapesModel.setProperty(shapeRoot.index, "text", text)
+        }
+        onVisibleChanged: if (visible) { forceActiveFocus(); selectAll() }
+        Keys.onEscapePressed: { canvasRoot.editingIndex = -1; canvasRoot.forceActiveFocus() }
     }
 
     MouseArea {
@@ -114,6 +221,11 @@ Item {
         cursorShape: Qt.SizeAllCursor
         drag.target: shapeRoot
         drag.axis: Drag.XAndYAxis
+        acceptedButtons: Qt.LeftButton
+        onPressed: mouse => {
+            canvasRoot.selectShape(shapeRoot.shapeId)
+            canvasRoot.beginChange()
+        }
 
         onDoubleClicked: {
             canvasRoot.editingIndex = shapeRoot.index
@@ -123,7 +235,28 @@ Item {
         onReleased: {
             canvasRoot.shapesModel.setProperty(shapeRoot.index, "px", shapeRoot.x)
             canvasRoot.shapesModel.setProperty(shapeRoot.index, "py", shapeRoot.y)
-            canvasRoot.rebuildArrowGeometry()
+            canvasRoot.endChange()
+        }
+    }
+
+    Menu {
+        id: contextMenu
+        objectName: "shapeMenu-" + shapeRoot.shapeId
+        popupType: Popup.Item
+        MenuItem { objectName: "editNode-" + shapeRoot.shapeId; text: "Edit text"; onTriggered: canvasRoot.editingIndex = shapeRoot.index }
+        MenuItem { text: "Details"; onTriggered: canvasRoot.inspectShapeRequested(shapeRoot.shapeId) }
+        MenuItem { text: "Duplicate"; onTriggered: canvasRoot.duplicateSelection() }
+        MenuSeparator {}
+        MenuItem { objectName: "deleteNode-" + shapeRoot.shapeId; text: "Delete"; onTriggered: canvasRoot.deleteSelection() }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        z: 4
+        acceptedButtons: Qt.RightButton
+        onClicked: mouse => {
+            canvasRoot.selectShape(shapeRoot.shapeId)
+            contextMenu.popup(mouse.x, mouse.y)
         }
     }
 
@@ -139,7 +272,7 @@ Item {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         anchors.rightMargin: -width / 2
-        visible: !dragArea.drag.active
+        visible: !dragArea.drag.active && canvasRoot.selectedId === shapeRoot.shapeId
 
         MouseArea {
             anchors.fill: parent
@@ -183,7 +316,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.rightMargin: -width / 3
         anchors.bottomMargin: -width / 3
-        visible: !dragArea.drag.active
+        visible: !dragArea.drag.active && canvasRoot.selectedId === shapeRoot.shapeId
         z: 2
 
         MouseArea {
@@ -196,6 +329,7 @@ Item {
             property double pressWorldY: 0
 
             onPressed: (mouse) => {
+                canvasRoot.beginChange()
                 startW = shapeRoot.pw
                 startH = shapeRoot.ph
                 var p = mapToItem(shapeRoot.worldItem, mouse.x, mouse.y)
@@ -211,7 +345,7 @@ Item {
                     canvasRoot.shapesModel.setProperty(shapeRoot.index, "ph", newH)
                 }
             }
-            onReleased: canvasRoot.rebuildArrowGeometry()
+            onReleased: canvasRoot.endChange()
         }
     }
 }

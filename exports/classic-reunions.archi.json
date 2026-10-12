@@ -1,0 +1,526 @@
+{
+  "format": "archi-brainstorm",
+  "version": 1,
+  "title": "Classic Reunions — Contract Flowchart",
+  "backgroundColor": "#ffffff",
+  "activeView": "main",
+  "views": [
+    {
+      "id": "main",
+      "title": "Contract Flowchart",
+      "notes": "Flowchart of the supplied Classic Reunions pseudocode. Each prompt and input is shown in sequence. Y/N answers are stored; no conditional branches or option charges are specified. The final output statements are grouped in one output block.",
+      "shapes": [
+        {
+          "shapeId": 1,
+          "px": 300.0,
+          "py": 0,
+          "pw": 600,
+          "ph": 90,
+          "text": "START\nClassic Reunions, Inc.",
+          "shapeKind": "terminal",
+          "shapeColor": "#dff3e4",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "START\nClassic Reunions, Inc.",
+          "linkView": ""
+        },
+        {
+          "shapeId": 2,
+          "px": 70.0,
+          "py": 122,
+          "pw": 1060,
+          "ph": 190,
+          "text": "Declarations\nnum contractNumber, month, day, year\nnum numberOfGuests, totalCost\nstring firstName, lastName\nstring cocktails, appetizers, dinner, band",
+          "shapeKind": "process",
+          "shapeColor": "#eef2f7",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "Declarations\nnum contractNumber, month, day, year\nnum numberOfGuests, totalCost\nstring firstName, lastName\nstring cocktails, appetizers, dinner, band",
+          "linkView": ""
+        },
+        {
+          "shapeId": 3,
+          "px": 50.0,
+          "py": 344,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Enter the contract number:”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Enter the contract number:”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 4,
+          "px": 230.0,
+          "py": 472,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT contractNumber",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT contractNumber",
+          "linkView": ""
+        },
+        {
+          "shapeId": 5,
+          "px": 50.0,
+          "py": 600,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Enter the contact person’s first name:”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Enter the contact person’s first name:”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 6,
+          "px": 230.0,
+          "py": 728,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT firstName",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT firstName",
+          "linkView": ""
+        },
+        {
+          "shapeId": 7,
+          "px": 50.0,
+          "py": 856,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Enter the contact person’s last name:”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Enter the contact person’s last name:”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 8,
+          "px": 230.0,
+          "py": 984,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT lastName",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT lastName",
+          "linkView": ""
+        },
+        {
+          "shapeId": 9,
+          "px": 50.0,
+          "py": 1112,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Enter the reunion month.”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Enter the reunion month.”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 10,
+          "px": 230.0,
+          "py": 1240,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT month",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT month",
+          "linkView": ""
+        },
+        {
+          "shapeId": 11,
+          "px": 50.0,
+          "py": 1368,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Enter the reunion day.”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Enter the reunion day.”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 12,
+          "px": 230.0,
+          "py": 1496,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT day",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT day",
+          "linkView": ""
+        },
+        {
+          "shapeId": 13,
+          "px": 50.0,
+          "py": 1624,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Enter the reunion year.”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Enter the reunion year.”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 14,
+          "px": 230.0,
+          "py": 1752,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT year",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT year",
+          "linkView": ""
+        },
+        {
+          "shapeId": 15,
+          "px": 50.0,
+          "py": 1880,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Enter the number of guests:”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Enter the number of guests:”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 16,
+          "px": 230.0,
+          "py": 2008,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT numberOfGuests",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT numberOfGuests",
+          "linkView": ""
+        },
+        {
+          "shapeId": 17,
+          "px": 50.0,
+          "py": 2136,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Will there be cocktails? (Y or N)”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Will there be cocktails? (Y or N)”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 18,
+          "px": 230.0,
+          "py": 2264,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT cocktails",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT cocktails",
+          "linkView": ""
+        },
+        {
+          "shapeId": 19,
+          "px": 50.0,
+          "py": 2392,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Will there be appetizers? (Y or N)”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Will there be appetizers? (Y or N)”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 20,
+          "px": 230.0,
+          "py": 2520,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT appetizers",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT appetizers",
+          "linkView": ""
+        },
+        {
+          "shapeId": 21,
+          "px": 50.0,
+          "py": 2648,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Will there be dinner? (Y or N)”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Will there be dinner? (Y or N)”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 22,
+          "px": 230.0,
+          "py": 2776,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT dinner",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT dinner",
+          "linkView": ""
+        },
+        {
+          "shapeId": 23,
+          "px": 50.0,
+          "py": 2904,
+          "pw": 1100,
+          "ph": 96,
+          "text": "OUTPUT “Will there be a band? (Y or N)”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “Will there be a band? (Y or N)”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 24,
+          "px": 230.0,
+          "py": 3032,
+          "pw": 740,
+          "ph": 96,
+          "text": "INPUT band",
+          "shapeKind": "input_output",
+          "shapeColor": "#fff4d9",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "INPUT band",
+          "linkView": ""
+        },
+        {
+          "shapeId": 25,
+          "px": 150.0,
+          "py": 3160,
+          "pw": 900,
+          "ph": 90,
+          "text": "totalCost = numberOfGuests * 10",
+          "shapeKind": "process",
+          "shapeColor": "#eee5fb",
+          "description": "Calculate the total cost at $10 per guest. The pseudocode does not add charges for selected options.",
+          "nodeKey": "",
+          "pseudocode": "totalCost = numberOfGuests * 10",
+          "linkView": ""
+        },
+        {
+          "shapeId": 26,
+          "px": -40.0,
+          "py": 3282,
+          "pw": 1280,
+          "ph": 510,
+          "text": "OUTPUT “===============================================”\nOUTPUT “Contract Number: ”, contractNumber\nOUTPUT “Contact Person: ”, firstName, “ ”, lastName\nOUTPUT “Date of Reunion: ”, month, “/”, day, “/”, year\nOUTPUT “Number of Guests Expected: ”, numberOfGuests\nOUTPUT “Options Selected:”\nOUTPUT “Cocktails: ”, cocktails\nOUTPUT “Appetizers: ”, appetizers\nOUTPUT “Dinner: ”, dinner\nOUTPUT “Band: ”, band\nOUTPUT “The total cost is $”, totalCost\nOUTPUT “Thank you for using Classic Reunions, Inc.”\nOUTPUT “Signature: __________________________________”\nOUTPUT “================================================”",
+          "shapeKind": "input_output",
+          "shapeColor": "#e7f1ff",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "OUTPUT “===============================================”\nOUTPUT “Contract Number: ”, contractNumber\nOUTPUT “Contact Person: ”, firstName, “ ”, lastName\nOUTPUT “Date of Reunion: ”, month, “/”, day, “/”, year\nOUTPUT “Number of Guests Expected: ”, numberOfGuests\nOUTPUT “Options Selected:”\nOUTPUT “Cocktails: ”, cocktails\nOUTPUT “Appetizers: ”, appetizers\nOUTPUT “Dinner: ”, dinner\nOUTPUT “Band: ”, band\nOUTPUT “The total cost is $”, totalCost\nOUTPUT “Thank you for using Classic Reunions, Inc.”\nOUTPUT “Signature: __________________________________”\nOUTPUT “================================================”",
+          "linkView": ""
+        },
+        {
+          "shapeId": 27,
+          "px": 420.0,
+          "py": 3824,
+          "pw": 360,
+          "ph": 80,
+          "text": "STOP",
+          "shapeKind": "terminal",
+          "shapeColor": "#dff3e4",
+          "description": "",
+          "nodeKey": "",
+          "pseudocode": "STOP",
+          "linkView": ""
+        }
+      ],
+      "arrows": [
+        {
+          "fromId": 1,
+          "toId": 2,
+          "label": ""
+        },
+        {
+          "fromId": 2,
+          "toId": 3,
+          "label": ""
+        },
+        {
+          "fromId": 3,
+          "toId": 4,
+          "label": ""
+        },
+        {
+          "fromId": 4,
+          "toId": 5,
+          "label": ""
+        },
+        {
+          "fromId": 5,
+          "toId": 6,
+          "label": ""
+        },
+        {
+          "fromId": 6,
+          "toId": 7,
+          "label": ""
+        },
+        {
+          "fromId": 7,
+          "toId": 8,
+          "label": ""
+        },
+        {
+          "fromId": 8,
+          "toId": 9,
+          "label": ""
+        },
+        {
+          "fromId": 9,
+          "toId": 10,
+          "label": ""
+        },
+        {
+          "fromId": 10,
+          "toId": 11,
+          "label": ""
+        },
+        {
+          "fromId": 11,
+          "toId": 12,
+          "label": ""
+        },
+        {
+          "fromId": 12,
+          "toId": 13,
+          "label": ""
+        },
+        {
+          "fromId": 13,
+          "toId": 14,
+          "label": ""
+        },
+        {
+          "fromId": 14,
+          "toId": 15,
+          "label": ""
+        },
+        {
+          "fromId": 15,
+          "toId": 16,
+          "label": ""
+        },
+        {
+          "fromId": 16,
+          "toId": 17,
+          "label": ""
+        },
+        {
+          "fromId": 17,
+          "toId": 18,
+          "label": ""
+        },
+        {
+          "fromId": 18,
+          "toId": 19,
+          "label": ""
+        },
+        {
+          "fromId": 19,
+          "toId": 20,
+          "label": ""
+        },
+        {
+          "fromId": 20,
+          "toId": 21,
+          "label": ""
+        },
+        {
+          "fromId": 21,
+          "toId": 22,
+          "label": ""
+        },
+        {
+          "fromId": 22,
+          "toId": 23,
+          "label": ""
+        },
+        {
+          "fromId": 23,
+          "toId": 24,
+          "label": ""
+        },
+        {
+          "fromId": 24,
+          "toId": 25,
+          "label": ""
+        },
+        {
+          "fromId": 25,
+          "toId": 26,
+          "label": ""
+        },
+        {
+          "fromId": 26,
+          "toId": 27,
+          "label": ""
+        }
+      ]
+    }
+  ]
+}
