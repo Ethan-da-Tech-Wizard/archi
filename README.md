@@ -2,23 +2,35 @@
 <p align="center"><b>An infinite-canvas diagramming tool for sketching systems, written in Qt 6 and QML.</b></p>
 <p align="center">
 <img alt="Qt" src="https://img.shields.io/badge/Qt-6.5%2B-41cd52">
-<img alt="C++" src="https://img.shields.io/badge/C%2B%2B-17-blue">
+<img alt="C++" src="https://img.shields.io/badge/C%2B%2B-20-blue">
 <img alt="CMake" src="https://img.shields.io/badge/build-CMake-informational">
 <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
+
+<p align="center"><img src="docs/archi-canvas.png" alt="Archi: shapes connected by arrows on an infinite dotted canvas" width="800"></p>
 
 Archi is a lightweight, native desktop app for drawing architecture and flow diagrams. You get an endless pan-and-zoom canvas, draggable shapes and connecting arrows, all rendered by Qt Quick so it stays fast and looks the same on every platform.
 
 ## Features
 
 - **Infinite canvas:** pan and zoom without edges.
-- **Shapes and arrows:** drop shapes, connect them with arrow layers and arrange freely.
+- **Shapes and arrows:** pick a rectangle, ellipse or diamond, double-click the canvas to drop one, and drag the blue dot on a shape to connect it to another.
 - **Cross-platform:** plain Qt 6 and CMake with no OS-specific code, so the same source builds on Linux, Windows and macOS.
 - **Tiny codebase:** a single C++ entry point plus a handful of QML components.
 
+## Controls
+
+| Action | How |
+|---|---|
+| Add a shape | Double-click empty canvas |
+| Edit a shape | Double-click it |
+| Move a shape | Drag it |
+| Draw an arrow | Drag the blue dot on a shape |
+| Pan | Drag empty canvas |
+
 ## Build and run
 
-You need Qt 6.5+, CMake and a C++ compiler. On Arch Linux:
+You need Qt 6.5+, CMake and a C++20 compiler. On Arch Linux:
 
 ```sh
 sudo pacman -S qt6-base qt6-declarative qt6-shadertools cmake gcc
@@ -34,7 +46,7 @@ Platform-specific steps for Windows, macOS and ChromeOS are in [BUILD.md](BUILD.
 | Path | Purpose |
 |---|---|
 | `src/main.cpp` | Application entry point |
-| `qml/Main.qml` | Main window |
+| `qml/Main.qml` | Main window and toolbar |
 | `qml/InfiniteCanvas.qml` | Pan and zoom canvas |
 | `qml/ShapeItem.qml`, `qml/ShapeIcon.qml` | Diagram shapes |
 | `qml/ArrowLayer.qml` | Connecting arrows |
