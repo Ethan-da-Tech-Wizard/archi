@@ -1,11 +1,25 @@
 .pragma library
 
+// ==============================================================================
+// Program: WorkflowChecks.js
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Directed graph topological analysis library for Archi diagram validation.
+//          Validates workflow graphs by detecting broken arrow connections, identifying
+//          unreachable nodes via BFS reachability analysis, checking decision branch
+//          completeness, and executing Kahn's topological sort algorithm to detect cycles.
+// ==============================================================================
 function analyze(view) {
+    // Step 1: Index all node shapes and prepare adjacency mapping for edge validation
+    const nodes = view.shapes
+    const ids = new Set(nodes.map(n => n.shapeId))
+    const outgoing = new Map(nodes.map(n => [n.shapeId, []]))
     const nodes = view.shapes
     const ids = new Set(nodes.map(n => n.shapeId))
     const outgoing = new Map(nodes.map(n => [n.shapeId, []]))
     const messages = []
     const label = n => (n.nodeKey || "#" + n.shapeId) + " " + n.text.replace(/\n/g, " ")
+    // Step 2: Validate edge endpoints to ensure no dangling arrows exist
     for (const edge of view.arrows) {
         if (!ids.has(edge.fromId) || !ids.has(edge.toId)) {
             messages.push("ERROR: Connection has a missing endpoint")
@@ -25,6 +39,7 @@ function analyze(view) {
             if (new Set(labels).size !== labels.length) messages.push("REVIEW: Duplicate branch labels: " + label(node))
         }
     }
+    // Step 3: Identify graph entry point and perform BFS reachability analysis
     const entry = view.entryId || nodes[0].shapeId
     const reached = new Set()
     const queue = [entry]
@@ -36,7 +51,7 @@ function analyze(view) {
     }
     for (const node of nodes)
         if (!reached.has(node.shapeId)) messages.push("REVIEW: Unreachable from entry: " + label(node))
-    // Kahn's algorithm detects cycles without recursive stack growth.
+    // Step 4: Kahn's algorithm detects cycles via indegree reduction without recursive call stack overhead
     const indegree = new Map(nodes.map(n => [n.shapeId, 0]))
     for (const edges of outgoing.values())
         for (const edge of edges) indegree.set(edge.toId, indegree.get(edge.toId) + 1)

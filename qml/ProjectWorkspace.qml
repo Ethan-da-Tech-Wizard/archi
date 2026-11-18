@@ -1,3 +1,11 @@
+// ==============================================================================
+// Program: ProjectWorkspace.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Central workspace manager coordinating file opening, serialization to JSON,
+//          recent project history tracking, math engine integration, workflow validation
+//          reporting, and document export pipeline.
+// ==============================================================================
 pragma ComponentBehavior: Bound
 
 import QtQuick

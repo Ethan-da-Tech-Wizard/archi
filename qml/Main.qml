@@ -1,3 +1,11 @@
+// ==============================================================================
+// Program: Main.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Root application window container coordinating overall UI layout, menu bars,
+//          global shortcut actions, dialog dispatchers, theme customization,
+//          and project lifecycle management.
+// ==============================================================================
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts

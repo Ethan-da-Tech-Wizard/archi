@@ -1,3 +1,12 @@
+// ==============================================================================
+// Program: DocumentFiles.h
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: File system abstraction layer for Archi project persistence.
+//          Handles safe atomic saves via QSaveFile, concurrency file locking
+//          via QLockFile to prevent cross-process clobbering, image rendering
+//          export to PNG with strict bounds checking, and backup file creation.
+// ==============================================================================
 #pragma once
 
 #include <QFile>
@@ -14,6 +23,8 @@ public:
     using QObject::QObject;
     Q_INVOKABLE QUrl folder(const QUrl &url) { return url.resolved(QUrl(".")); }
 
+        // Exports canvas snapshot to PNG image with size validation and smooth scaling
+        // Performs atomic disk write using temporary buffer via QSaveFile commit
     Q_INVOKABLE QVariantMap writePng(const QUrl &url, const QImage &image, const QSize &size) {
         if (!url.isLocalFile())
             return {{"ok", false}, {"error", "A local file is required"}};
@@ -37,6 +48,7 @@ public:
         return {{"ok", true}, {"width", output.width()}, {"height", output.height()}};
     }
 
+        // Concurrency-safe atomic save utilizing QLockFile and previous content hash verification
     Q_INVOKABLE QVariantMap saveChecked(const QUrl &url, const QString &expected, const QString &text) {
         if (!url.isLocalFile())
             return {{"ok", false}, {"error", "A local file is required"}};
@@ -52,6 +64,7 @@ public:
         return write(url, text);
     }
 
+        // Reads project file from local disk with 16 MiB size sanity limit
     Q_INVOKABLE QVariantMap read(const QUrl &url) {
         if (!url.isLocalFile())
             return {{"ok", false}, {"error", "A local file is required"}};
@@ -66,6 +79,7 @@ public:
         return {{"ok", true}, {"text", QString::fromUtf8(bytes)}};
     }
 
+        // Performs atomic disk write using temporary buffer via QSaveFile commit
     Q_INVOKABLE QVariantMap write(const QUrl &url, const QString &text) {
         if (!url.isLocalFile())
             return {{"ok", false}, {"error", "A local file is required"}};

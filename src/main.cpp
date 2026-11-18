@@ -1,3 +1,12 @@
+// ==============================================================================
+// Program: main.cpp
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Main entry point and CLI controller for Archi desktop application.
+//          Initializes the Qt/QML application engine, registers C++ helper types
+//          into QML context, parses command line arguments for headless operations
+//          (such as --sync-status and --export-png), and boots the main canvas view.
+// ==============================================================================
 #include "DocumentFiles.h"
 #include "MathEngine.h"
 #include "DocumentSync.h"
@@ -12,6 +21,7 @@
 
 int main(int argc, char *argv[])
 {
+    // Step 1: Check command-line arguments for headless automated tasks (e.g. sync check or export)
     if (argc >= 2 && QByteArray(argv[1]) == "--sync-status") {
         QCoreApplication app(argc, argv);
         if (argc != 3) {
@@ -27,6 +37,7 @@ int main(int argc, char *argv[])
         const auto state = sync.report().value("state").toString();
         return state == "current" ? 0 : state == "error" ? 1 : 2;
     }
+        // Step 2: Initialize GUI application framework and QML rendering context
     QGuiApplication app(argc, argv);
     app.setOrganizationName("Archi");
     app.setApplicationName("Archi");

@@ -1,3 +1,11 @@
+// ==============================================================================
+// Program: InfiniteCanvas.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Core infinite interactive workspace component managing pan, zoom, grid rendering,
+//          multi-selection bounding boxes, drag-and-drop shape manipulation, and complete
+//          undo/redo state snapshots for all diagram elements.
+// ==============================================================================
 import QtQuick
 import QtQuick.Controls
 

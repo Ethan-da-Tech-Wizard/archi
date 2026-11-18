@@ -1,3 +1,12 @@
+// ==============================================================================
+// Program: DocumentSync.h
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Multi-document synchronization and change-tracking engine for Archi.
+//          Computes cryptographic/content hashes of diagram state, detects external
+//          disk modifications, reconciles concurrent edits across linked workspaces,
+//          and maintains audit histories of canvas entity transformations.
+// ==============================================================================
 #pragma once
 
 #include <QCryptographicHash>

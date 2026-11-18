@@ -1,3 +1,11 @@
+// ==============================================================================
+// Program: PngExporter.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: High-resolution rasterization component for capturing canvas views to PNG.
+//          Calculates tight bounding boxes around all active shapes, manages transparent
+//          or solid background fills, and invokes native C++ image writer hooks.
+// ==============================================================================
 import QtQuick
 
 Item {

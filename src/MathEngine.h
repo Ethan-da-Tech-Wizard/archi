@@ -1,3 +1,12 @@
+// ==============================================================================
+// Program: MathEngine.h
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Asynchronous C++/Qt bridge connecting the diagramming GUI to the
+//          isolated Python SymPy mathematical engine subprocess. Manages process
+//          lifecycles, enforces execution timeouts, buffers standard I/O, and
+//          emits reactive Qt signals upon calculation completion or error.
+// ==============================================================================
 #pragma once
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,6 +27,7 @@ class MathEngine : public QObject {
     QString errorText;
 public:
     explicit MathEngine(QObject *parent = nullptr) : QObject(parent) {
+        // Initialize single-shot watchdog timer to terminate hung or infinite calculations
         timer.setSingleShot(true);
         connect(&timer, &QTimer::timeout, this, [this] {
             errorText = "Calculation exceeded its time budget";
@@ -61,6 +71,7 @@ public:
     bool busy() const { return process.state() != QProcess::NotRunning; }
     QString result() const { return resultText; }
     QString error() const { return errorText; }
+        // Asynchronously dispatches a symbolic math operation to the Python subprocess
     Q_INVOKABLE void calculate(const QString &expression, const QString &operation, const QString &variable) {
         if (busy()) return;
         resultText.clear(); errorText.clear(); output.clear();

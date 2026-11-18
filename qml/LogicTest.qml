@@ -1,3 +1,10 @@
+// ==============================================================================
+// Program: LogicTest.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: In-engine unit testing component verifying QML graph manipulation logic,
+//          shape connection assertions, undo stack consistency, and serialization parity.
+// ==============================================================================
 import QtQuick
 
 Item {

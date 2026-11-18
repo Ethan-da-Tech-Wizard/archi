@@ -1,3 +1,11 @@
+// ==============================================================================
+// Program: ShapeItem.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Reusable interactive canvas node component representing diagram shapes.
+//          Handles rich-text editing, resizable grab handles, selection states,
+//          geometry transformations, color themes, and anchor connection points.
+// ==============================================================================
 import QtQuick
 import QtQuick.Shapes
 import QtQuick.Controls

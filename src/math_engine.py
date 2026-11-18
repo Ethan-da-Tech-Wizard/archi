@@ -1,3 +1,13 @@
+# ==============================================================================
+# Program: math_engine.py
+# Programmer: Ethan-da-Tech-Wizard
+# Last Modified: November 18, 2026
+# Purpose: Bounded, non-evaluating expression front end for SymPy calculations.
+#          Safely parses mathematical input strings into an Abstract Syntax Tree (AST),
+#          enforces strict execution limits and sandboxing (AST node limit, depth limit),
+#          and computes algebraic operations such as simplification, differentiation,
+#          integration, and matrix determinants without using unsafe eval().
+# ==============================================================================
 """Bounded, non-evaluating expression front end for SymPy. One request per process."""
 import ast
 import json
@@ -16,6 +26,7 @@ from sympy.core.relational import Relational
 
 
 def matrix(value):
+    # Enforce safe dimensional bounds (1 to 8 rows/cols) to prevent computational exhaustion
     if not isinstance(value, list) or not value or len(value) > 8:
         raise ValueError("A matrix needs 1 to 8 rows")
     if any(not isinstance(row, list) or not row or len(row) > 8 for row in value):
@@ -39,13 +50,17 @@ CONSTANTS = {"pi": sp.pi, "E": sp.E, "I": sp.I, "oo": sp.oo,
 
 
 def parse_expression(text):
+    # Step 1: Validate input string length to avoid denial-of-service through oversized payloads
     if not isinstance(text, str) or not text.strip() or len(text) > 1024:
         raise ValueError("Expression must contain 1 to 1024 characters")
+    # Step 2: Parse raw string into Python AST in read-only eval mode
     tree = ast.parse(text, mode="eval")
     if sum(1 for _ in ast.walk(tree)) > 160:
         raise ValueError("Expression is too large")
 
+    # Step 3: Recursive visitor that converts safe AST nodes into SymPy expressions
     def visit(node, depth=0):
+        # Guard against stack overflow attacks via deeply nested syntax trees
         if depth > 24:
             raise ValueError("Expression nesting limit reached")
         child = lambda item: visit(item, depth + 1)
@@ -103,6 +118,8 @@ def parse_expression(text):
 
 
 def calculate(request):
+    # Step 1: Safely parse and validate the mathematical expression
+    # Step 2: Extract and sanitize variable identifier for calculus operations
     expression = parse_expression(request.get("expression"))
     name = request.get("variable", "x")
     if not isinstance(name, str) or not name.isascii() or not name.isidentifier() or name.startswith("_") or len(name) > 32:

@@ -1,3 +1,12 @@
+// ==============================================================================
+// Program: png_export.cpp
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Automated regression test suite verifying headless PNG export functionality.
+//          Spawns the Archi executable in offscreen software-rendering mode across
+//          various project configurations, testing unicode path handling, canvas
+//          bounding box clipping, and pixel-color fidelity checks.
+// ==============================================================================
 #include <QCoreApplication>
 #include <QFile>
 #include <QImage>

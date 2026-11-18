@@ -1,3 +1,11 @@
+// ==============================================================================
+// Program: ArrowLayer.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Canvas overlay rendering directional connector arrows between diagram nodes.
+//          Calculates geometric intersection points between shape perimeters, computes
+//          curved or orthogonal Bézier paths, and positions branch text labels dynamically.
+// ==============================================================================
 import QtQuick
 import QtQuick.Shapes
 

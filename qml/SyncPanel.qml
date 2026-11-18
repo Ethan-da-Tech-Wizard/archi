@@ -1,3 +1,10 @@
+// ==============================================================================
+// Program: SyncPanel.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: UI side-panel displaying file synchronization status, conflict warnings,
+//          external disk change notices, and manual reconciliation action triggers.
+// ==============================================================================
 pragma ComponentBehavior: Bound
 
 import QtQuick

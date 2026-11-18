@@ -1,3 +1,11 @@
+// ==============================================================================
+// Program: CheatSheetPopup.qml
+// Programmer: Ethan-da-Tech-Wizard
+// Last Modified: November 18, 2026
+// Purpose: Modal reference popup displaying keyboard shortcuts, math syntax rules,
+//          and diagramming best practices. Provides interactive filtering and search
+//          over supported mathematical functions, operators, and navigation hotkeys.
+// ==============================================================================
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
