@@ -1,25 +1,36 @@
+// Program: archi - LogicTest.qml
+// Programmer: Ethan-da-Tech-Wizard (written with Claude, an AI assistant)
+// Last Modified: 2026-11-18
+// Purpose: Headless test harness (selected with ARCHI_ENTRY=LogicTest) that drives an InfiniteCanvas through shape creation, arrows, panning, zooming, undo/redo and the sample flowchart, printing PASS/FAIL lines and exiting non-zero on the first failure.
+
 import QtQuick
 
+// The test window: an Item that holds one canvas to test.
 Item {
     id: harness
     width: 800
     height: 600
 
+    // The canvas being tested; it fills the harness.
     InfiniteCanvas {
         id: canvas
         anchors.fill: parent
     }
 
+    // Check that two numbers are equal (within 0.001); print the result and exit with code 1 on failure.
     function assertEq(label, actual, expected) {
+        // Compare with a tiny tolerance because the numbers may be decimals.
         var pass = Math.abs(actual - expected) < 0.001
         console.log((pass ? "PASS " : "FAIL ") + label + " got=" + actual + " want=" + expected)
         if (!pass) Qt.exit(1)
     }
+    // Check that a condition is true; print the result and exit with code 1 on failure.
     function assertTrue(label, cond) {
         console.log((cond ? "PASS " : "FAIL ") + label)
         if (!cond) Qt.exit(1)
     }
 
+    // The tests run automatically as soon as the harness finishes loading.
     Component.onCompleted: {
         // Create two shapes far apart in world space.
         canvas.createShape(0, 0)
@@ -143,7 +154,9 @@ Item {
         assertTrue("sample flowchart internal method shape kind", canvas.shapesModel.get(4).shapeKind === "internal_method")
         assertTrue("sample flowchart external method shape kind", canvas.shapesModel.get(5).shapeKind === "external_method")
 
+        // Clear the undo history so the next steps start clean.
         canvas.resetHistory()
+        // Delete the decision shape, undo and redo, and check shapes and arrows follow.
         var deletedId = canvas.shapesModel.get(3).shapeId
         canvas.selectShape(deletedId)
         assertTrue("selection deletion succeeds", canvas.deleteSelection())
@@ -155,15 +168,18 @@ Item {
         canvas.redo()
         assertEq("redo removes shape", canvas.shapesModel.count, 6)
         canvas.undo()
+        // While a node's text is being edited, Delete must not remove it.
         canvas.editingIndex = 0
         assertTrue("Delete does not remove a text-edited node", !canvas.deleteSelection())
         canvas.editingIndex = -1
+        // Duplicate a shape and check it can be undone.
         canvas.selectShape(canvas.shapesModel.get(0).shapeId)
         canvas.duplicateSelection()
         assertEq("duplicate creates one shape", canvas.shapesModel.count, 8)
         canvas.undo()
         assertEq("duplicate is undoable", canvas.shapesModel.count, 7)
 
+        // Reaching this line means every check above passed.
         console.log("ALL TESTS PASSED")
         Qt.exit(0)
     }

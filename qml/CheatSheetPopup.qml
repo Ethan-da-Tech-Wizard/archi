@@ -1,20 +1,31 @@
+// Program: archi - CheatSheetPopup.qml
+// Programmer: Ethan-da-Tech-Wizard (written with Claude, an AI assistant)
+// Last Modified: 2026-11-18
+// Purpose: QML popup window (the Flowchart Cheat Sheet) that lists every flowchart symbol with its icon and meaning, lets the user pick a shape type, and can load a sample flowchart.
+
+// Qt Quick basics, the standard controls (Popup, Button, Label) and layouts.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
+// Popup shows a floating panel on top of the window; modal blocks clicks on whatever is behind it.
 Popup {
     id: popup
     modal: true
     focus: true
+    // Size it to 90% of the window width (max 780) and 85% of its height (max 620); "window" is the app's main window id.
     width: Math.min(window.width * 0.9, 780)
     height: Math.min(window.height * 0.85, 620)
+    // Center it horizontally and vertically inside its parent.
     x: (parent.width - width) / 2
     y: (parent.height - height) / 2
     padding: 24
 
+    // Signals other files can listen to: the user chose a shape kind, or asked for the sample flowchart.
     signal selectShapeKind(string kind)
     signal loadSampleFlowchart()
 
+    // The data behind the list: one entry per symbol with a name, a kind id (used to draw the icon), a picture description and a purpose.
     readonly property var symbols: [
         {
             name: "Terminal",
@@ -60,10 +71,12 @@ Popup {
         }
     ]
 
+    // The rounded white panel behind the popup contents.
     background: Rectangle {
         color: "#ffffff"
         radius: 12
         border.color: "#d0d0d0"
+        // A very faint dark overlay on top of the white panel gives it a subtle tint.
         border.width: 1
 
         Rectangle {
@@ -74,13 +87,16 @@ Popup {
         }
     }
 
+    // Main vertical layout: title row, divider, scrolling list, divider, button row.
     ColumnLayout {
         anchors.fill: parent
         spacing: 16
 
+        // Title row: heading text on the left, close button on the right.
         RowLayout {
             Layout.fillWidth: true
 
+            // Heading and subtitle stacked vertically.
             ColumnLayout {
                 spacing: 2
                 Label {
@@ -96,8 +112,10 @@ Popup {
                 }
             }
 
+            // An empty stretchy item pushes the close button to the right edge.
             Item { Layout.fillWidth: true }
 
+            // Small X button that closes the popup.
             ToolButton {
                 text: "✕"
                 implicitWidth: 32
@@ -106,12 +124,14 @@ Popup {
             }
         }
 
+        // A thin horizontal divider line.
         Rectangle {
             Layout.fillWidth: true
             height: 1
             color: "#e0e0e0"
         }
 
+        // Scrollable area holding the list of symbols.
         ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -121,8 +141,10 @@ Popup {
                 width: parent.width
                 spacing: 12
 
+                // Repeater creates one row for every entry of the symbols list.
                 Repeater {
                     model: popup.symbols
+                    // Each row alternates between two background shades so the list is easy to scan.
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
@@ -133,6 +155,7 @@ Popup {
                         border.color: "#e4e8ec"
                         border.width: 1
 
+                        // Inside each row: icon, text details, and a Select button.
                         RowLayout {
                             id: shapeRow
                             anchors.fill: parent
@@ -148,6 +171,7 @@ Popup {
                                 border.color: "#cbd5e1"
                                 border.width: 1
 
+                                // Draws the symbol's picture using the ShapeIcon component.
                                 ShapeIcon {
                                     kind: modelData.kind
                                     implicitWidth: 36
@@ -213,16 +237,19 @@ Popup {
             }
         }
 
+        // Another divider line above the buttons.
         Rectangle {
             Layout.fillWidth: true
             height: 1
             color: "#e0e0e0"
         }
 
+        // Bottom button row.
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
 
+            // Closes the sheet and asks the app to build the example flowchart.
             Button {
                 text: "✨ Load Sample Flowchart"
                 highlighted: true
@@ -236,6 +263,7 @@ Popup {
 
             Item { Layout.fillWidth: true }
 
+            // Plain Close button.
             Button {
                 text: "Close"
                 onClicked: popup.close()
