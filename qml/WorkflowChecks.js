@@ -14,9 +14,6 @@ function analyze(view) {
     const nodes = view.shapes
     const ids = new Set(nodes.map(n => n.shapeId))
     const outgoing = new Map(nodes.map(n => [n.shapeId, []]))
-    const nodes = view.shapes
-    const ids = new Set(nodes.map(n => n.shapeId))
-    const outgoing = new Map(nodes.map(n => [n.shapeId, []]))
     const messages = []
     const label = n => (n.nodeKey || "#" + n.shapeId) + " " + n.text.replace(/\n/g, " ")
     // Step 2: Validate edge endpoints to ensure no dangling arrows exist
