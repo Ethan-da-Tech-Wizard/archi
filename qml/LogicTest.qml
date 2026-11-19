@@ -4,9 +4,25 @@
 // Last Modified: November 18, 2026
 // Purpose: In-engine unit testing component verifying QML graph manipulation logic,
 //          shape connection assertions, undo stack consistency, and serialization parity.
+//
+// How to run (headless, no window needed):
+//   ARCHI_ENTRY=LogicTest ./build/archi
+// main.cpp loads this file instead of ProjectWorkspace when ARCHI_ENTRY is
+// set. Each check prints "PASS <label>" or "FAIL <label>"; the first failure
+// calls Qt.exit(1), a full run prints "ALL TESTS PASSED" and exits 0, so it
+// is usable from CI or a shell `&&` chain.
+//
+// What it covers: shape creation and ids, arrow creation/clipping/self-arrow
+// rejection, origin rebasing, zoom-to-cursor maths, constant on-screen shape
+// size, arrow scaling for tiny shapes, shape kinds, the sample flowchart,
+// delete/undo/redo and duplicate. It drives InfiniteCanvas functions
+// directly; mouse handling in ShapeItem/ProjectWorkspace is not exercised.
 // ==============================================================================
 import QtQuick
 
+// The test runs everything from Component.onCompleted, so only the harness
+// item and one canvas are needed. 800x600 gives the canvas a real size for
+// width/height based maths.
 Item {
     id: harness
     width: 800
@@ -17,17 +33,20 @@ Item {
         anchors.fill: parent
     }
 
+    /** Compares numbers within 0.001 (floating-point tolerance); logs and aborts on mismatch. */
     function assertEq(label, actual, expected) {
         var pass = Math.abs(actual - expected) < 0.001
         console.log((pass ? "PASS " : "FAIL ") + label + " got=" + actual + " want=" + expected)
         if (!pass) Qt.exit(1)
     }
+    /** Boolean assertion; logs PASS/FAIL and aborts the process on failure. */
     function assertTrue(label, cond) {
         console.log((cond ? "PASS " : "FAIL ") + label)
         if (!cond) Qt.exit(1)
     }
 
     Component.onCompleted: {
+        // Test 1: ids start at 1 and increase, and createShape adds one row each time.
         // Create two shapes far apart in world space.
         canvas.createShape(0, 0)
         canvas.createShape(1000, 0)
@@ -38,10 +57,13 @@ Item {
         assertEq("shape0 shapeId", s0.shapeId, 1)
         assertEq("shape1 shapeId", s1.shapeId, 2)
 
+        // Test 2: text edits go straight into the model (what ShapeItem's editor does).
         // Edit text on shape 0 like a user would while in edit mode.
         canvas.shapesModel.setProperty(0, "text", "Service A")
         assertTrue("text set", canvas.shapesModel.get(0).text === "Service A")
 
+        // Test 3: connecting two shapes yields one arrow whose drawn endpoints are on
+        // the shape borders (clipToShape), not at the centres.
         // Connect them with an arrow and check geometry clips to the box edges,
         // not the centers (i.e. arrow shouldn't start/end inside the shapes).
         canvas.addArrow(s0.shapeId, s1.shapeId)
@@ -55,10 +77,13 @@ Item {
         assertTrue("arrow end clipped to shape1 edge (not center)", line.x2 < s1cx)
         assertTrue("arrow is roughly horizontal", Math.abs(line.y1 - line.y2) < 0.01)
 
+        // Test 4: an arrow from a shape to itself is meaningless and must be refused.
         // Self-arrow must be rejected.
         canvas.addArrow(s0.shapeId, s0.shapeId)
         assertEq("self-arrow rejected", canvas.arrows.length, 1)
 
+        // Test 5: moving the view 60000 units away must trigger the rebase, shifting
+        // every shape by exactly that amount so nothing visibly moves.
         // Drive the pan/zoom + origin-rebasing path directly (no mouse needed):
         // push the view far past the rebase threshold and confirm shape
         // world coordinates get shifted back near-origin while visually
@@ -71,11 +96,14 @@ Item {
         var afterShapeX = canvas.shapesModel.get(0).px
         assertEq("shape shifted by exactly the rebase amount", beforeShapeX - afterShapeX, 60000)
 
+        // Test 6: arrow geometry is derived data and must be rebuilt after a rebase.
         // Arrow geometry must be recomputed post-rebase (regression check for
         // stale-cache bugs) and still clip correctly using the new coordinates.
         var line2 = canvas.arrowLines[0]
         assertTrue("arrow geometry updated after rebase", Math.abs(line2.x1 - (line.x1 - 60000)) < 0.01)
 
+        // Test 7: the zoom-to-cursor formula used by the wheel handler keeps the
+        // world point under the cursor fixed (replicated here, no mouse needed).
         // Zoom-to-cursor sanity: zooming should keep the world point under a
         // fixed screen pixel fixed, not drift.
         canvas.viewX = 0
@@ -92,6 +120,7 @@ Item {
         assertEq("zoom-to-cursor keeps world point fixed (x)", worldUnderCursorAfter.x, worldUnderCursorBefore.x)
         assertEq("zoom-to-cursor keeps world point fixed (y)", worldUnderCursorAfter.y, worldUnderCursorBefore.y)
 
+        // Test 8: new shapes appear at a constant SCREEN size at any zoom.
         // Shapes should keep a constant on-screen size regardless of zoom:
         // create one at zoom=2 (still set from above) and confirm its world
         // size, scaled by zoom, matches the configured screen-pixel default.
@@ -104,6 +133,7 @@ Item {
         assertEq("shape screen width constant across zoom", zoomedShape.pw * canvas.zoom, canvas.defaultShapeWidth)
         assertEq("shape screen height constant across zoom", zoomedShape.ph * canvas.zoom, canvas.defaultShapeHeight)
 
+        // Test 9: resizing through the model, as the corner handle does.
         // Resizing (as the corner-drag handle does) updates pw/ph directly,
         // and connected arrow geometry must follow on the next rebuild.
         var resizeIdx = canvas.shapesModel.count - 1
@@ -112,6 +142,7 @@ Item {
         assertEq("resize updates pw", canvas.shapesModel.get(resizeIdx).pw, 300)
         assertEq("resize updates ph", canvas.shapesModel.get(resizeIdx).ph, 150)
 
+        // Test 10: regression for the "tiny shape, giant arrowhead" bug.
         // Regression for the "tiny shape, giant handle" bug: a shape created
         // while zoomed way in ends up with a small world-space size (see the
         // screen-constant-size test above). Its connecting arrow's stroke
@@ -129,6 +160,7 @@ Item {
         assertTrue("tiny shape arrow strokeWidth scales down", tinyLine.strokeWidth < 1)
         assertTrue("tiny shape arrow strokeWidth stays positive", tinyLine.strokeWidth > 0)
 
+        // Test 11: every toolbar shape kind is applied to newly created shapes.
         // Shape-type picker: test all standard flowchart kinds
         var kindsToTest = ["terminal", "input_output", "process", "decision", "internal_method", "external_method"]
         for (var k = 0; k < kindsToTest.length; k++) {
@@ -139,6 +171,7 @@ Item {
             assertTrue("new shape picks up selected kind (" + kindName + ")", createdShape.shapeKind === kindName)
         }
 
+        // Test 12: the sample flowchart has 7 shapes, 7 arrows and the expected kinds.
         // Test sample flowchart loader
         canvas.loadSampleDiagram()
         assertEq("sample flowchart shape count", canvas.shapesModel.count, 7)
@@ -150,6 +183,8 @@ Item {
         assertTrue("sample flowchart internal method shape kind", canvas.shapesModel.get(4).shapeKind === "internal_method")
         assertTrue("sample flowchart external method shape kind", canvas.shapesModel.get(5).shapeKind === "external_method")
 
+        // Test 13: delete removes the shape and its arrows; undo/redo round trip;
+        // deletion is blocked while text is being edited; duplicate is one undo step.
         canvas.resetHistory()
         var deletedId = canvas.shapesModel.get(3).shapeId
         canvas.selectShape(deletedId)
@@ -171,6 +206,7 @@ Item {
         canvas.undo()
         assertEq("duplicate is undoable", canvas.shapesModel.count, 7)
 
+        // Reached only if every assertion above passed.
         console.log("ALL TESTS PASSED")
         Qt.exit(0)
     }

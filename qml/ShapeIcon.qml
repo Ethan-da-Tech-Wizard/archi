@@ -4,19 +4,32 @@
 // Last Modified: November 18, 2026
 // Purpose: Vector icon rendering component used across toolbars and palettes to represent
 //          different diagram node primitives (rectangles, diamonds, clouds, circles).
+//
+// How it fits: used by CheatSheetPopup.qml (symbol reference sheet), which
+// Main.qml opens (and so does the ProjectWorkspace window that inherits it). These glyphs imitate what ShapeItem.qml draws on
+// the canvas but are simplified, cheap, and fixed in proportion. All parts
+// are always instantiated; `visible` shows only the one matching `kind`
+// (only a handful of tiny items per icon, so no Loader is needed).
 // ==============================================================================
 import QtQuick
 import QtQuick.Shapes
 
+// Size comes from the parent: set width/height where the icon is placed.
 // Draws a small flowchart symbol glyph procedurally for toolbar & cheat sheet
 Item {
     id: iconRoot
 
+    // Which symbol to draw. Aliases ("ellipse", "rect", "io", "diamond") are
+    // accepted so the same values work as in project files.
     required property string kind // "terminal"|"flowline"|"input_output"|"process"|"rect"|"decision"|"diamond"|"internal_method"|"external_method"
+    // Interior colour; transparent by default so icons sit on any surface.
     property color fillColor: "transparent"
+    // Outline and rule colour.
     property color strokeColor: "#555555"
+    // Outline thickness in pixels; paths are inset by half of it so the stroke is not clipped.
     property real strokeWidth: 1.5
 
+    // Terminal: pill shape (corner radius = half the height).
     // Terminal (Elongated oval shape)
     Rectangle {
         anchors.fill: parent
@@ -27,6 +40,7 @@ Item {
         border.width: iconRoot.strokeWidth
     }
 
+    // Process: rectangle with slightly rounded corners.
     // Process / Rectangle
     Rectangle {
         anchors.fill: parent
@@ -37,6 +51,7 @@ Item {
         border.width: iconRoot.strokeWidth
     }
 
+    // Input/Output: parallelogram, top edge shifted right by 25 % of the width.
     // Input/Output (Parallelogram)
     Shape {
         id: ioShape
@@ -55,6 +70,7 @@ Item {
         }
     }
 
+    // Decision: diamond through the midpoints of the four sides.
     // Decision (Diamond)
     Shape {
         id: diamondShape
@@ -73,6 +89,7 @@ Item {
         }
     }
 
+    // Internal method: rectangle with a rule 28 % from the top and a rule 25 % from the left.
     // Internal Method (Rectangle with top horizontal line & left vertical line)
     Item {
         anchors.fill: parent
@@ -105,6 +122,7 @@ Item {
         }
     }
 
+    // External method: rectangle with vertical rules at 22 % and 78 % of the width.
     // External Method (Rectangle with left and right vertical lines)
     Item {
         anchors.fill: parent
@@ -137,6 +155,8 @@ Item {
         }
     }
 
+    // Flowline: shaft left to right with a small triangular head at the right
+    // end (head 6 px long, 8 px wide).
     // Flowline (Arrow pointing to the right)
     Shape {
         id: flowlineShape

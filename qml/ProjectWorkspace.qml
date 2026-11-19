@@ -5,7 +5,35 @@
 // Purpose: Central workspace manager coordinating file opening, serialization to JSON,
 //          recent project history tracking, math engine integration, workflow validation
 //          reporting, and document export pipeline.
+//
+// How it fits: main.cpp loads this as the default window. It extends the base
+// window `Archi.Main` (Main.qml: toolbar, InfiniteCanvas as `diagramCanvas`,
+// background colour, cheat sheet) and adds everything document related:
+//   * document model: one JS object (`document`) in format "archi-brainstorm"
+//     version 1 = { title, backgroundColor, activeView, views: [ {id, title,
+//     notes, shapes[], arrows[], viewport} ] }. The canvas holds only the
+//     CURRENT view; snapshotView() copies it back into `document` and
+//     showView() loads another.
+//   * persistence via the C++ helper `boardFiles` (DocumentFiles.h): checked
+//     saves, atomic writes, ".bak" backups, ".recovery.json" on failed saves.
+//   * `projectSync` (DocumentSync.h) is told about every open/save/edit so
+//     the sync panel and footer stay correct.
+//   * helpers: WorkflowChecks.js (graph validation), `mathEngine` (SymPy),
+//     PngExporter, SyncPanel, search, node inspector, recent-project list.
+//
+// State flow: any canvas change -> changed() -> dirty=true, syncTimer (180 ms
+// debounce to projectSync) and, if Autosave is on, saveTimer (1.2 s) ->
+// saveDocument(). Note that panning/zooming also counts as a change because
+// the viewport is saved in the file.
+//
+// Command-line properties set by main.cpp: documentUrl, pngExportTarget,
+// restoreLastProject, rememberProjects, autoSave (see "--export-png").
+//
+// Known limits: 1500 shapes and 5000 arrows per view (validate()); whole
+// project is one JSON file; undo history is per view and in memory only.
 // ==============================================================================
+// Bound component behaviour: delegates/inline components reference these ids
+// through qualified names (`board.`), and per-item data uses required properties.
 pragma ComponentBehavior: Bound
 
 import QtQuick
@@ -13,44 +41,77 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtCore
+// "." imports this folder's QML types under the name Archi (Main, SyncPanel, PngExporter).
 import "." as Archi
+// Stateless library (.pragma library) with analyze(view); imported by path.
 import "WorkflowChecks.js" as WorkflowChecks
 
+// Window id `board`: referenced by child dialogs and by the helper QML types.
 Archi.Main {
     id: board
     width: 1360
     height: 880
     minimumWidth: 420
     minimumHeight: 360
+    // Window title shows project name and a trailing "*" while there are unsaved changes.
     title: "Archi - " + (document ? document.title : "Untitled") + (dirty ? " *" : "")
 
+    // Project file being edited (empty = untitled, not yet saved).
     property url documentUrl: ""
+    // Set only by `--export-png`: where to write the PNG, after which the app exits.
     property url pngExportTarget: ""
+    // Whether to record opened projects in the recent list; the CLI export turns this off.
     property bool rememberProjects: true
+    // Whether to reopen the last project at start-up.
     property bool restoreLastProject: true
+    // Recent projects as [{url, title}], parsed from settings (corrupt JSON gives []).
     property var recentProjects: parseRecents(projectSettings.recentJson)
+    // The whole project JSON (see header); null until loaded.
     property var document: null
+    // Short alias to the InfiniteCanvas declared in Main.qml.
     readonly property var boardCanvas: diagramCanvas
+    // Index into document.views of the view shown on the canvas.
     property int viewIndex: 0
+    // Exact file text last read or written; sent with each save so C++ can
+    // detect that someone else changed the file meanwhile (optimistic locking).
     property string diskRevision: ""
+    // Text of the status line at the bottom ("Saved 14:03:02", errors, ...).
     property string status: "Opening"
+    // True when in-memory content differs from disk.
     property bool dirty: false
+    // True while a document or view is being loaded; suppresses change tracking.
     property bool loading: false
+    // Set when the user has answered the "save before closing" prompt.
     property bool allowClose: false
+    // Autosave switch (footer toggle); saves 1.2 s after the last change.
     property bool autoSave: true
+    // Counter bumped on loads and edits, so bindings can react to "something changed".
     property int revision: 0
+    // Copy of the selected shape's data feeding the inspector; null when none.
     property var selectedNode: null
+    // Search results [{viewIndex, id, title, key, view}], at most 80.
     property var matches: []
+    // Undo/redo stacks of views that are not currently shown, keyed by view id,
+    // so switching views does not lose history.
     property var viewHistory: ({})
+    // True when the inspector's text boxes differ from the selected shape: edits
+    // typed but not yet applied. Used to avoid losing them on save/switch.
     readonly property bool inspectorDirty: !!selectedNode && (titleEdit.text !== selectedNode.text
         || notesEdit.text !== selectedNode.description || codeEdit.text !== selectedNode.pseudocode)
+    // Same for the selected connection's branch label.
     readonly property bool edgeDirty: boardCanvas.selectedArrow >= 0 && boardCanvas.selectedArrow < boardCanvas.arrows.length
         && edgeEdit.text !== (boardCanvas.arrows[boardCanvas.selectedArrow].label || "")
+    // True while a sync update is queued or typed edits are pending; the sync
+    // panel disables review actions in that case.
     readonly property bool syncDraftPending: syncTimer.running || inspectorDirty || edgeDirty
+    // Start the debounce so pending inspector text reaches the sync engine soon.
     onInspectorDirtyChanged: if (!loading) syncTimer.restart()
     onEdgeDirtyChanged: if (!loading) syncTimer.restart()
+    // Make room for the docked inspector on wide windows; below 1100 px it
+    // overlays the canvas instead (modal drawer).
     canvasRightInset: inspector.opened && width >= 1100 ? inspector.width : 0
 
+    // Recent-project and last-opened-project storage in <config>/Archi/projects.ini.
     Settings {
         id: projectSettings
         location: "file://" + StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/Archi/projects.ini"
@@ -58,10 +119,21 @@ Archi.Main {
         property string recentJson: "[]"
         property string lastUrl: ""
     }
+    /**
+     * Parses the stored recent-project list.
+     * @param raw JSON text from settings.
+     * @returns {Array<{url:string,title:string}>} valid entries only; [] if the
+     *          text is not valid JSON, so a damaged settings file cannot break start-up.
+     */
     function parseRecents(raw) {
         try { return JSON.parse(raw).filter(p => typeof p.url === "string" && typeof p.title === "string") }
         catch (error) { return [] }
     }
+    /**
+     * Adds the open project to the front of the recent list (max 20, no
+     * duplicates) and stores it as the project to restore next time.
+     * No-op when remembering is off or the project is untitled.
+     */
     function rememberProject() {
         if (!rememberProjects || !String(documentUrl)) return
         const item = {url: String(documentUrl), title: document.title}
@@ -69,15 +141,29 @@ Archi.Main {
         projectSettings.lastUrl = item.url
         projectSettings.sync()
     }
+    /**
+     * Builds an empty project document: one empty view "main".
+     * @param title Project name; "Untitled" if empty.
+     */
     function newDocumentData(title) {
         return {format: "archi-brainstorm", version: 1, title: title || "Untitled", backgroundColor: String(bgColor),
                 views: [{id: "main", title: "Main", notes: "", shapes: [], arrows: []}]}
     }
+    /**
+     * Runs the structural workflow analysis on the current view and returns the
+     * report text. Pending inspector edits and canvas state are flushed first so
+     * the check sees what the user sees.
+     */
     function checkWorkflow() {
         commitDetails()
         snapshotView()
         return WorkflowChecks.analyze(document.views[viewIndex])
     }
+    /**
+     * Adds a node holding a finished calculation to the middle of the visible
+     * canvas: title = operation, description = result, pseudocode =
+     * "expression => result". Called by the Math dialog's "Add to diagram".
+     */
     function insertCalculation(operation, expression, result) {
         const x = boardCanvas.viewX + boardCanvas.width / boardCanvas.zoom / 2
         const y = boardCanvas.viewY + boardCanvas.height / boardCanvas.zoom / 2
@@ -89,6 +175,13 @@ Archi.Main {
         boardCanvas.editingIndex = -1
         updateSelection()
     }
+    /**
+     * Opens another project file, saving the current one first if it has
+     * unsaved changes.
+     * @param url Local `file:` URL.
+     * @returns {boolean} true on success; on any failure the previous project
+     *          stays open (documentUrl is restored) and `status` shows why.
+     */
     function openProject(url) {
         commitDetails()
         if (dirty && !saveDocument()) return false
@@ -98,6 +191,12 @@ Archi.Main {
         documentUrl = previous
         return false
     }
+    /**
+     * Creates a new project file (refusing to overwrite an existing one via
+     * boardFiles.create) and opens it.
+     * @param url   Target file URL.
+     * @param title Project name stored in the file.
+     */
     function createProject(url, title) {
         commitDetails()
         if (dirty && !saveDocument()) return false
@@ -105,6 +204,11 @@ Archi.Main {
         if (!result.ok) { status = result.error; return false }
         return openProject(url)
     }
+    /**
+     * Appends an empty view and switches to it. The current view's undo history
+     * is parked first so it is still there when the user comes back.
+     * View ids are "view-<timestamp>", made unique if two are created in the same millisecond.
+     */
     function addView(title) {
         commitDetails()
         snapshotView()
@@ -116,12 +220,14 @@ Archi.Main {
         showView(document.views.length - 1)
         changed()
     }
+    /** Applies inspector or branch-label text the user typed but has not applied yet; no-op if nothing differs. */
     function commitDetails() {
         if (edgeDirty) { applyDetails(); return }
         if (!selectedNode) return
         if (titleEdit.text !== selectedNode.text || notesEdit.text !== selectedNode.description || codeEdit.text !== selectedNode.pseudocode)
             applyDetails()
     }
+    // The background colour is part of the file; recolouring counts as an edit.
     onBgColorChanged: {
         if (document && !loading) {
             document.backgroundColor = String(bgColor)
@@ -129,15 +235,27 @@ Archi.Main {
         }
     }
 
+    /** Reads a file through C++ and returns its text; throws Error(message) on failure so callers can use try/catch. */
     function readFile(url) {
         const result = boardFiles.read(url)
         if (!result.ok) throw new Error(result.error)
         return result.text
     }
+    /** Writes a file through C++ (atomic); throws on failure. */
     function writeFile(url, text) {
         const result = boardFiles.write(url, text)
         if (!result.ok) throw new Error(result.error)
     }
+    /**
+     * Checks a parsed project before it is loaded or saved; throws Error with a
+     * user-readable message when something is wrong.
+     *
+     * Rules: correct format/version; at least one view; unique view ids; at most
+     * 1500 shapes and 5000 arrows per view; each shape has a unique positive
+     * integer id, finite position, positive size and string text/kind/colour;
+     * every arrow endpoint exists and route points are finite numbers.
+     * Validating on save too means the app never writes a file it would refuse to open.
+     */
     function validate(data) {
         if (data.format !== "archi-brainstorm" || data.version !== 1
                 || !Array.isArray(data.views) || !data.views.length)
@@ -168,6 +286,10 @@ Archi.Main {
             }
         }
     }
+    /**
+     * Marks the project as modified and schedules the follow-up work.
+     * Ignored while loading, so opening a file does not make it "dirty".
+     */
     function changed() {
         if (loading || !document) return
         dirty = true
@@ -176,6 +298,13 @@ Archi.Main {
         syncTimer.restart()
         if (autoSave) saveTimer.restart()
     }
+    /**
+     * Pushes the current (possibly unsaved) state to the sync engine now.
+     *
+     * Builds a candidate copy of the document with the inspector's and branch
+     * editor's typed-but-unapplied text merged in, so the sync report reflects
+     * what the user sees. The real document is not changed.
+     */
     function refreshSyncDraft() {
         syncTimer.stop()
         if (!document || loading) return
@@ -188,6 +317,14 @@ Archi.Main {
         if (edgeDirty) candidate.views[viewIndex].arrows[boardCanvas.selectedArrow].label = edgeEdit.text
         projectSync.updateDraft(JSON.stringify(candidate))
     }
+    /**
+     * Copies the canvas contents into `document` for the current view.
+     *
+     * Shape fields the canvas does not know about (anything in the original
+     * shape object beyond the canvas roles) are preserved by merging the
+     * canvas copy over the original, so files written by newer versions do not
+     * lose data. Also records viewport (pan/zoom), active view and background.
+     */
     function snapshotView() {
         if (!document) return
         const view = document.views[viewIndex]
@@ -198,6 +335,15 @@ Archi.Main {
         document.activeView = view.id
         document.backgroundColor = String(bgColor)
     }
+    /**
+     * Replaces the canvas with view `index` of the document.
+     *
+     * Runs with `loading` and the canvas's `restoring` flags set so none of
+     * this counts as an edit or an undo step. After filling shapes and arrows
+     * it restores that view's parked undo history, then the saved viewport, or
+     * fits the view if none was saved, or centres at zoom 1 if empty.
+     * @param index Position in document.views; out-of-range is ignored.
+     */
     function showView(index) {
         if (!document || index < 0 || index >= document.views.length) return
         loading = true
@@ -206,6 +352,7 @@ Archi.Main {
         viewIndex = index
         const view = document.views[index]
         boardCanvas.clearCanvas()
+        // New ids start above the largest in the file so existing arrows stay valid.
         let maxId = 0
         for (const shape of view.shapes) {
             boardCanvas.shapesModel.append(boardCanvas.copyShape(shape))
@@ -214,6 +361,7 @@ Archi.Main {
         boardCanvas.nextShapeId = maxId + 1
         boardCanvas.arrows = JSON.parse(JSON.stringify(view.arrows))
         boardCanvas.rebuildArrowGeometry()
+        // resetHistory() just emptied both stacks; reinstate this view's own parked history, if any.
         const history = viewHistory[view.id]
         boardCanvas.resetHistory()
         if (history) {
@@ -221,6 +369,7 @@ Archi.Main {
             boardCanvas.redoStack = history.redo
         }
         boardCanvas.restoring = false
+        // Accept a saved viewport only if every number is finite and zoom is positive.
         if (view.viewport && [view.viewport.x, view.viewport.y, view.viewport.zoom].every(Number.isFinite)
                 && view.viewport.zoom > 0) {
             boardCanvas.viewX = view.viewport.x
@@ -236,6 +385,10 @@ Archi.Main {
         revision++
         boardCanvas.forceActiveFocus()
     }
+    /**
+     * Saves the current view, parks its undo history and shows another view.
+     * @param index Target view; ignored if it is already shown.
+     */
     function switchView(index) {
         if (!document || index === viewIndex) return
         commitDetails()
@@ -245,14 +398,23 @@ Archi.Main {
         showView(index)
         changed()
     }
+    /** Jumps to the view whose id is `id` (used by a node's "Open flow" link). */
     function goToView(id) {
         const index = document.views.findIndex(v => v.id === id)
         if (index >= 0) switchView(index)
     }
     function fitView() { boardCanvas.fitView() }
+    /**
+     * Loads `documentUrl` from disk, replacing the open document.
+     * Validates before touching any state so a bad file cannot half-load, then
+     * restores the active view, clears history, tells the sync engine and updates
+     * the recent list.
+     * @returns {boolean} true on success; false with the reason in `status`.
+     */
     function loadDocument() {
         saveTimer.stop()
         try {
+            // Read and validate BEFORE changing anything so failures leave the current project untouched.
             const raw = readFile(documentUrl)
             const parsed = JSON.parse(raw)
             validate(parsed)
@@ -273,16 +435,30 @@ Archi.Main {
             return false
         }
     }
+    /**
+     * Saves the project.
+     * @param target Optional destination for "Save a copy"/first save; when
+     *        omitted the existing documentUrl is saved in place.
+     * @returns {boolean} true if written. An untitled project opens the Save
+     *          dialog and returns false (the save continues from the dialog).
+     *
+     * Saving in place uses saveChecked: it refuses if the file on disk no longer
+     * matches `diskRevision` (changed by someone else), and keeps a .bak of
+     * the previous version. If saving fails the project is written to
+     * "<file>.recovery.json" so the user's work is not lost.
+     */
     function saveDocument(target) {
         saveTimer.stop()
         commitDetails()
         if (!target && !String(documentUrl)) { copyDialog.open(); return false }
+        // Validate first: never write a document the loader would reject.
         try {
             if (!document) throw new Error("No document is open")
             snapshotView()
             validate(document)
             const url = target ? String(target) : String(documentUrl)
             const raw = JSON.stringify(document, null, 2) + "\n"
+            // In-place save is conflict-checked; saving to a new path is a plain atomic write.
             if (url === String(documentUrl)) {
                 const result = boardFiles.saveChecked(documentUrl, diskRevision, raw)
                 if (!result.ok) throw new Error(result.error)
@@ -294,6 +470,7 @@ Archi.Main {
             rememberProject()
             status = "Saved " + Qt.formatTime(new Date(), "hh:mm:ss")
             return true
+        // Keep the work: dump the JSON next to the project and tell the user.
         } catch (error) {
             status = String(error)
             try {
@@ -303,16 +480,28 @@ Archi.Main {
             return false
         }
     }
+    /** Reloads the project from disk; asks for confirmation first if there are unsaved changes (they would be lost). */
     function requestReload() {
         if (dirty) reloadDialog.open()
         else loadDocument()
     }
+    /**
+     * Starts a PNG export of the current view.
+     * @param target Destination `file:` URL.
+     * @returns {boolean} false if an export is already running or could not start.
+     */
     function exportPng(target) {
         if (pngExporter.busy) return false
         commitDetails()
         status = "Exporting PNG..."
         return pngExporter.exportTo(boardCanvas, target)
     }
+    /**
+     * Refreshes the inspector from the canvas selection.
+     * Copies the selected shape (text, description, pseudocode) into the text
+     * boxes, or the selected arrow's label into the branch box; clears both
+     * when nothing is selected.
+     */
     function updateSelection() {
         const s = boardCanvas.findShapeById(boardCanvas.selectedId)
         selectedNode = s ? boardCanvas.copyShape(s) : null
@@ -321,6 +510,10 @@ Archi.Main {
         codeEdit.text = s ? s.pseudocode || "" : ""
         edgeEdit.text = boardCanvas.selectedArrow >= 0 ? boardCanvas.arrows[boardCanvas.selectedArrow].label || "" : ""
     }
+    /**
+     * Writes the inspector's text into the selected shape (or arrow label) as a
+     * single undo step, then re-reads the selection.
+     */
     function applyDetails() {
         boardCanvas.editingIndex = -1
         boardCanvas.beginChange()
@@ -341,6 +534,11 @@ Archi.Main {
         boardCanvas.endChange()
         updateSelection()
     }
+    /**
+     * Case-insensitive search across ALL views by shape text, nodeKey and
+     * description; shows the first 80 matches in a popup (empty query closes it).
+     * @param query text typed in the search box.
+     */
     function searchNodes(query) {
         if (!document) return
         snapshotView()
@@ -355,6 +553,10 @@ Archi.Main {
         else searchPopup.close()
     }
 
+    // Start-up sequence, deferred one event-loop turn so every child (dialogs,
+    // timers, C++ context properties) exists first. Order of preference:
+    // 1) reopen the last project (GUI runs only), 2) open the project given on
+    // the command line / export request, 3) start an empty untitled project.
     Component.onCompleted: Qt.callLater(function() {
         const initial = String(documentUrl)
         if (rememberProjects && restoreLastProject && projectSettings.lastUrl) {
@@ -366,6 +568,8 @@ Archi.Main {
             if (String(pngExportTarget)) Qt.callLater(function() { board.exportPng(board.pngExportTarget) })
             return
         }
+        // A requested PNG export with no usable project is a hard failure: exit
+        // code 1 so scripts notice.
         if (String(pngExportTarget)) {
             console.error("PNG export failed: " + status)
             Qt.exit(1)
@@ -377,14 +581,22 @@ Archi.Main {
         status = "New project"
         projectSync.track(documentUrl, JSON.stringify(document), "")
     })
+    // Autosave: 1.2 s after the last change, only for projects that already
+    // have a file (untitled ones would need a Save dialog).
     Timer { id: saveTimer; interval: 1200; onTriggered: if (board.dirty && String(board.documentUrl)) board.saveDocument() }
+    // Debounce for informing the sync engine about edits (matches DocumentSync's own 180 ms).
     Timer { id: syncTimer; interval: 180; onTriggered: board.refreshSyncDraft() }
+    // Document sync dialog (SyncPanel.qml); opened from the footer's link button.
     Archi.SyncPanel { id: syncPanel; workspace: board }
+    // Any shape added, removed or edited is a document change.
     Connections {
         target: board.boardCanvas.shapesModel
         function onDataChanged() { board.changed() }
         function onCountChanged() { board.changed() }
     }
+    // Canvas events: `modified` = history-recording edit; selection changes
+    // flush typed inspector text first so edits are not lost; viewport changes
+    // are saved too (they are stored in the file).
     Connections {
         target: board.boardCanvas
         function onModified() { board.changed(); board.updateSelection() }
@@ -395,6 +607,8 @@ Archi.Main {
         function onViewYChanged() { board.changed() }
         function onZoomChanged() { board.changed() }
     }
+    // Keyboard shortcuts: Save, Ctrl+Shift+E export, Open (saves first),
+    // Ctrl+R reload, Ctrl+0 fit, Ctrl+F focus the search box.
     Shortcut { sequences: [StandardKey.Save]; onActivated: board.saveDocument() }
     Shortcut { sequence: "Ctrl+Shift+E"; enabled: !pngExporter.busy; onActivated: pngDialog.open() }
     Shortcut { sequences: [StandardKey.Open]; onActivated: if (!board.dirty || board.saveDocument()) openDialog.open() }
@@ -402,6 +616,7 @@ Archi.Main {
     Shortcut { sequence: "Ctrl+0"; onActivated: board.fitView() }
     Shortcut { sequence: "Ctrl+F"; onActivated: searchField.forceActiveFocus() }
 
+    // Icon-only toolbar button (same pattern as Main.qml's IconTool).
     component BoardTool: ToolButton {
         property string glyph
         property string tip
@@ -415,12 +630,15 @@ Archi.Main {
         Accessible.name: tip
     }
 
+    // Top menu bar (two rows): file/project actions, then view picker and search.
     menuBar: ToolBar {
         implicitHeight: 86
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 5
             spacing: 3
+            // Row 1: new/open, background colour, recent-project picker, math dialog,
+            // workflow check, save, PNG export.
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 4
@@ -453,6 +671,7 @@ Archi.Main {
                     onClicked: pngDialog.open()
                 }
             }
+            // Row 2: view picker, new view, node search and the details (inspector) toggle.
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 5
@@ -477,6 +696,7 @@ Archi.Main {
         }
     }
 
+    // Search results list; clicking jumps to the node's view and centres on it.
     Popup {
         id: searchPopup
         x: Math.max(8, board.width - width - 12)
@@ -504,6 +724,8 @@ Archi.Main {
         }
     }
 
+    // Right-hand details drawer, sized to the area under the toolbars. Docked
+    // (non-modal) on windows >= 1100 px wide; otherwise an overlay.
     Drawer {
         id: inspector
         objectName: "nodeInspector"
@@ -523,17 +745,22 @@ Archi.Main {
             ColumnLayout {
                 width: parent.width
                 spacing: 10
+                // Header: node key (or "Connection"/"View") and a close button.
                 RowLayout {
                     Layout.fillWidth: true
                     Label { text: board.selectedNode ? board.selectedNode.nodeKey || "New node" : board.boardCanvas.selectedArrow >= 0 ? "Connection" : "View"; font.bold: true; Layout.fillWidth: true }
                     BoardTool { glyph: "window-close"; tip: "Close details"; onClicked: inspector.close() }
                 }
+                // With nothing selected the drawer shows the current view's notes.
                 Label {
                     Layout.fillWidth: true
                     visible: !board.selectedNode && board.boardCanvas.selectedArrow < 0
                     text: board.document && board.document.views[board.viewIndex] ? board.document.views[board.viewIndex].notes || "" : ""
                     wrapMode: Text.Wrap
                 }
+                // Editors for the selected node: operation (title), analysis (description)
+                // and pseudocode; the branch field appears for a selected arrow. They stay
+                // as typed until Apply (or selection change / save) writes them back.
                 Label { text: "Operation"; visible: !!board.selectedNode }
                 TextArea { id: titleEdit; objectName: "nodeTitle"; Layout.fillWidth: true; visible: !!board.selectedNode; wrapMode: TextEdit.Wrap; selectByMouse: true }
                 Label { text: "Analysis"; visible: !!board.selectedNode }
@@ -542,7 +769,9 @@ Archi.Main {
                 TextArea { id: codeEdit; objectName: "nodeCode"; Layout.fillWidth: true; visible: !!board.selectedNode; wrapMode: TextEdit.WrapAnywhere; selectByMouse: true; font.family: "monospace" }
                 Label { text: "Branch"; visible: board.boardCanvas.selectedArrow >= 0 }
                 TextField { id: edgeEdit; Layout.fillWidth: true; visible: board.boardCanvas.selectedArrow >= 0 }
+                // Apply writes the text into the model as one undo step.
                 Button { text: "Apply"; visible: !!board.selectedNode || board.boardCanvas.selectedArrow >= 0; onClicked: board.applyDetails() }
+                // Shown when the node links to a detailed sub-view (linkView).
                 Button {
                     text: "Open flow"
                     visible: !!board.selectedNode && !!board.selectedNode.linkView
@@ -552,6 +781,7 @@ Archi.Main {
         }
     }
 
+    // Name prompt, then a file chooser, then createProject().
     Dialog {
         id: newProjectDialog
         title: "New Project"
@@ -562,11 +792,17 @@ Archi.Main {
         onAccepted: newProjectFile.open()
     }
 
+    // Math & Logic dialog: operation, variable and expression go to the C++
+    // `mathEngine`; the result can be copied or inserted as a node.
     Dialog {
         id: mathDialog
         objectName: "mathDialog"
+        // Fingerprint of the inputs at the time Calculate was pressed; the result
+        // is only offered when the inputs still match it (stale results are never inserted).
         property string submittedKey: ""
+        // Fingerprint of the inputs right now.
         readonly property string currentKey: JSON.stringify([mathExpression.text, mathOperation.currentText, mathVariable.text])
+        // True when a finished, error-free result matches the current inputs.
         readonly property bool hasCurrentResult: submittedKey === currentKey && !mathEngine.busy && !!mathEngine.result && !mathEngine.error
         title: "Math & Logic"
         anchors.centerIn: parent
@@ -574,6 +810,7 @@ Archi.Main {
         height: Math.min(440, board.height - 24)
         modal: true
         standardButtons: Dialog.Close
+        // Closing the dialog aborts a running calculation.
         onClosed: mathEngine.cancel()
         contentItem: ColumnLayout {
             spacing: 8
@@ -584,6 +821,7 @@ Archi.Main {
                     objectName: "mathOperation"
                     Layout.fillWidth: true
                     enabled: !mathEngine.busy
+                    // Operation names must match the keys in src/math_engine.py exactly.
                     model: ["Simplify", "Expand", "Factor", "Differentiate", "Integrate", "Solve = 0", "Determinant", "Inverse", "Eigenvalues", "Boolean simplify", "Satisfiable"]
                 }
                 Label { text: "Variable" }
@@ -622,6 +860,7 @@ Archi.Main {
             }
         }
     }
+    // Workflow check result dialog (text from WorkflowChecks.analyze()).
     Dialog {
         id: checkDialog
         title: "Workflow Check"
@@ -635,6 +874,8 @@ Archi.Main {
             TextArea { id: checkReport; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; textFormat: TextEdit.PlainText }
         }
     }
+    // File choosers: create, open, save-a-copy, and PNG export. The ones that
+    // start in a folder fall back to the Documents folder for an untitled project.
     FileDialog {
         id: newProjectFile
         title: "Create Project"
@@ -680,6 +921,9 @@ Archi.Main {
         currentFolder: String(board.documentUrl) ? boardFiles.folder(board.documentUrl) : "file://" + StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
         onAccepted: board.exportPng(selectedFile)
     }
+    // PNG exporter. The result handler updates the status line and shows an
+    // error dialog for interactive runs; in `--export-png` mode (pngExportTarget
+    // set) it instead logs and exits the whole app with code 0 or 1.
     Archi.PngExporter {
         id: pngExporter
         onFinished: (file, result) => {
@@ -699,10 +943,12 @@ Archi.Main {
             }
         }
     }
+    // Error popup for failed interactive exports.
     MessageDialog {
         id: pngError
         title: "PNG export failed"
     }
+    // Confirmation before reloading over unsaved changes.
     Dialog {
         id: reloadDialog
         title: "Discard unsaved changes and reload?"
@@ -711,6 +957,8 @@ Archi.Main {
         standardButtons: Dialog.Discard | Dialog.Cancel
         onDiscarded: board.loadDocument()
     }
+    // Close prompt. onClosing first tries to save silently; only if that fails
+    // (or there is no file) does the Save/Discard/Cancel dialog appear.
     Dialog {
         id: closeDialog
         title: "Save changes before closing?"
@@ -724,6 +972,8 @@ Archi.Main {
         if (dirty && !allowClose && !saveDocument()) { close.accepted = false; closeDialog.open() }
     }
 
+    // Footer, two rows: sync status (green when current) and the general
+    // status line with node count, autosave switch, save-a-copy and reload.
     footer: ToolBar {
         implicitHeight: 72
         ColumnLayout {
@@ -734,6 +984,7 @@ Archi.Main {
                 Layout.fillWidth: true
                 spacing: 5
                 BoardTool { objectName: "openSync"; glyph: "insert-link"; tip: "Document sync"; onClicked: syncPanel.open() }
+                // Reflects typed-but-unapplied edits first, then a pending sync check, then the C++ summary.
                 Label {
                     objectName: "syncStatus"
                     Layout.fillWidth: true
@@ -747,6 +998,7 @@ Archi.Main {
                 }
                 BoardTool { glyph: "view-refresh"; tip: "Check document sync"; onClicked: { board.refreshSyncDraft(); projectSync.refresh() } }
             }
+            // Row 2: status text (full path in tooltip), node count, autosave, copy, reload.
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 5
