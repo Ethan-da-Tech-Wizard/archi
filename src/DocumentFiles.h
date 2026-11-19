@@ -92,6 +92,7 @@ public:
         return {{"ok", true}};
     }
 
+        // Performs atomic file creation with O_EXCL semantics to fail safely if target file already exists
     Q_INVOKABLE QVariantMap create(const QUrl &url, const QString &text) {
         if (!url.isLocalFile())
             return {{"ok", false}, {"error", "A local file is required"}};
